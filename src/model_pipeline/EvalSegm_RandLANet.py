@@ -5,7 +5,7 @@ import torch.multiprocessing as mp
 from torch.utils.data import DataLoader
 import pathlib as pth
 
-from _data_loader import Dataset_RandLANet
+from _data_loader import Dataset
 
 import os
 import sys
@@ -20,12 +20,13 @@ parent_dir = os.path.dirname(current_dir)
 
 sys.path.append(parent_dir)
 
-from utils.nn_utils.src.evaluation_plot_tools import Plotter, ClassificationReport
+from utils import Plotter, ClassificationReport
 
-# from utils_universal.load_save_files import load_json, load_model
-from utils.nn_utils.src.accuracy_metrics import calculate_accuracy, compute_mIoU, get_Probabilities, \
-    get_intLabels, calculate_accuracy_weighted, calculate_class_weights, get_dataset_len, FocalLoss, DiceLoss, \
-    compute_mIoU_from_flat
+from utils import load_json, load_model
+from utils import calculate_weighted_accuracy, compute_mIoU, get_Probabilities, \
+    get_intLabels, calculate_class_weights, get_dataset_len, LabelSmoothingFocalLoss
+
+
 from tqdm import tqdm
 
 def dummy_data4warmup(input_dim: int, n_classes: int):

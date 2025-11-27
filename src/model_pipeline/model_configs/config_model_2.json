@@ -1,6 +1,6 @@
 {
     "d_in": 4,
-    "num_neighbors": 16,
+    "num_neighbors": 32,
     "decimation": 2,
     "encoder_layers": [
       {"d_in": 8, "d_out": 32},
@@ -18,7 +18,7 @@
       "d_out": 8
     },
     "fc_end": {
-      "layers": [24, 16],
-      "dropout": 0.4
+      "layers": [32, 16],
+      "dropout": 0.5
     }
   }

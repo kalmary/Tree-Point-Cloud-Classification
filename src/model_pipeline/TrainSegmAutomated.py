@@ -86,6 +86,21 @@ def get_step_list(param_value_list: list[Union[int, float]]) -> list[Union[int, 
     else:
         raise ValueError(f"Invalid parameter values: {param_value_list}. Must be all int or all float.")
 
+def get_factor_list(param_value_list: list[Union[float]]) -> list[Union[float]]:
+    """"Generate a list of values based on the given parameter value of list elements."""
+
+    start, stop, factor = param_value_list
+    factor_list = []
+    
+    num = start
+    while num > stop:
+        factor_list.append(num)
+        num *= factor
+
+    return factor_list.sort()
+
+    
+
 def generate_experiment_configs(training_config: dict, 
                                 model_configs_list: Sequence[dict],
                                 device_name: str = 'cpu') -> list[dict]:
@@ -107,19 +122,11 @@ def generate_experiment_configs(training_config: dict,
         
         elif isinstance(value, list) and len(value) > 1 and not 'samples_len' in key.lower():
             if "learning_rate" in key.lower() or "weight_decay" in key.lower():
-                lr_vals = []
-                lr_vals.append(training_config[key][0])
-
-
-                while lr_vals[-1] > training_config[key][1]:
-                    next_lr = lr_vals[-1] * training_config[key][2]
-                    lr_vals.append(next_lr)
                 
-                lr_vals.sort()
-                dynamic_params[key] = lr_vals
-
-            elif 'learning_rate' not in key.lower():
+                dynamic_params[key] = get_factor_list(training_config[key])
+            else:
                 dynamic_params[key] = get_step_list(value)
+
         elif 'samples_len' in key.lower():
             samples_len = get_step_list(value)
             static_params[key] = samples_len
@@ -300,7 +307,7 @@ class Checkpoint:
         model_name = model_path.stem
         logger.info(f'New best model saved to: {model_path}. model_name: {model_name}')
 
-        best_model = model
+
         best_config = exp_config
         best_config['device'] = str(best_config['device'])
 
@@ -319,7 +326,8 @@ class Checkpoint:
             plotter_obj.plot_accuracy(f'acc_{model_name}.png', 
                                     result_hist['acc_hist'],
                                     result_hist['acc_v_hist'])
-            plotter_obj.plot_miou(f'miou_{model_name}.png',
+            
+            plotter_obj.plot_miou(f'miou_{model_name}.png', 
                                     result_hist['miou_hist'],
                                     result_hist['miou_v_hist'])
 
@@ -350,19 +358,13 @@ def case_based_training(exp_configs: list[dict],
     logger.info(f'Model path created: {model_path}')
 
     plot_dir = model_dir.joinpath('plots')
-    dict_files_dir = model_dir.joinpath('dict_files_dir')
+    dict_files_dir = model_dir.joinpath('dict_files')
     
 
     plot_dir.mkdir(exist_ok=True, parents=True)
     logger.info(f'Plots directory created: {plot_dir}')
     dict_files_dir.mkdir(exist_ok=True, parents=True)
     logger.info(f'Dict files directory created: {dict_files_dir}')
-
-
-    acc_v_best = 0.
-    best_model = None
-    best_config = None
-
     
 
     logger.info('Case based training starting.')
@@ -379,16 +381,12 @@ def case_based_training(exp_configs: list[dict],
 
             model, best_config, config_path, result_hist = checkpoint.check_checkpoint(model, model_name, final_val, exp_config, result_hist)
     
-    logger.info(f'STOP: case_based_training. Best model saved to: {model_path}')
-    
-    pprint(20*'=')
-    print(f"Best model saved to: {model_path}")
-    print(f"Best config saved to: {config_path}")
-    print(f"Best model accuracy: {acc_v_best}")
-    pprint(f'Best training config:\n{best_config}\n')
-    pprint(20*'=')
-    
+    logger.info(f'Best model saved to: {model_path}')
+    logger.info(f'Best config saved to: {config_path}')
+    logger.info('STOP: case_based_training')
+
     summary(model)
+
 
 def objective_function(trial: optuna.Trial,
                        exp_config: list[dict], # exp config, converted from str
@@ -412,8 +410,9 @@ def objective_function(trial: optuna.Trial,
     batch_size = get_step_list(exp_config['batch_size'])
     epochs = get_step_list(exp_config['epochs'])
 
-    lr = trial.suggest_float('learning_rate', exp_config['learning_rate'][1], exp_config['learning_rate'][0], log=True)
-    weight_decay = trial.suggest_float('weight_decay', exp_config['weight_decay'][1], exp_config['weight_decay'][0], log=True)
+    lr = trial.suggest_categorical('learning_rate', get_factor_list(exp_config['learning_rate']))
+    weight_decay = trial.suggest_categorical('weight_decay', get_factor_list(exp_config['weight_decay']))
+
     batch_size = trial.suggest_int('batch_size', exp_config['batch_size'][0], exp_config['batch_size'][1], step=exp_config['batch_size'][2])
     epochs = trial.suggest_int('epochs', exp_config['epochs'][0], exp_config['epochs'][1], step=exp_config['epochs'][2] )
     focal_loss_gamma = trial.suggest_float('focal_loss_gamma', exp_config['focal_loss_gamma'][0], exp_config['focal_loss_gamma'][1], step=exp_config['focal_loss_gamma'][2])
@@ -475,9 +474,13 @@ def objective_function(trial: optuna.Trial,
 
 
         normalized_loss = 1 / (1 + best_val_loss)
-        final_val = 0.4 * best_val_accuracy + 0.15 * normalized_loss + 0.45 * best_val_miou
+        final_val = 0.4 * best_val_accuracy + 0.15 * normalized_loss + 0.45 * best_val_miou # TODO tuning might be necessary
 
-        checkpoint.check_checkpoint(model, model_name, final_val, exp_config, result_hist)
+        checkpoint.check_checkpoint(model,
+                                    model_name,
+                                    final_val,
+                                    exp_config,
+                                    result_hist)
 
         logger.info(f'Epoch {epoch_idx+1}/{exp_config["epochs"]}: best_val_acc: {best_val_accuracy:.3f}, best_val_loss: {best_val_loss:.3f}, best_val_miou: {best_val_miou:.3f}, final_val: {final_val:.3f}')
 
@@ -688,6 +691,7 @@ def main():
                      max_memory_GB=20,
                      verbose=True)
 
+        
 
 if __name__ == '__main__':
     

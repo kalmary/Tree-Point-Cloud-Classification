@@ -18,7 +18,7 @@
       "d_out": 8
     },
     "fc_end": {
-      "layers": [20],
-      "dropout": 0.35
+      "layers": [24, 16],
+      "dropout": 0.4
     }
   }

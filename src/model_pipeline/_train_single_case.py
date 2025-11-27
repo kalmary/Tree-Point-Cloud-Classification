@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 
 from RandLANet_CB import RandLANet
 
-from model_pipeline._data_loader import *
+from _data_loader import *
 
 src_dir = pth.Path(__file__).parent.parent
 sys.path.append(str(src_dir))
@@ -52,6 +52,7 @@ def train_model(training_dict: dict,):
                                               total_t, 
                                               device=torch.device('cpu'),
                                               verbose=False)
+    
     class_weights_v = calculate_class_weights(valLoader,
                                               training_dict['num_classes'],
                                               total_v,

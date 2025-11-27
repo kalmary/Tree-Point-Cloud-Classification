@@ -7,21 +7,21 @@ from typing import Optional, Union, OrderedDict
 import torch
 from torch.utils.data import IterableDataset, get_worker_info
 
-import sys
-import os
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-sys.path.append(parent_dir)
-
-from utils.pcd_manipulation import rotate_points, tilt_points, transform_points
-
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-sys.path.append(parent_dir)
-
 import fpsample
 import random
+
+import sys
+import os
+
+src_dir = pth.Path(__file__).parent.parent
+sys.path.append(str(src_dir))
+
+from utils import rotate_points, tilt_points, transform_points
+
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
 
 class Dataset(IterableDataset):
 
