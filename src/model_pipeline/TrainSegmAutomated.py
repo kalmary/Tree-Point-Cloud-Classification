@@ -410,6 +410,7 @@ def objective_function(trial: optuna.Trial,
     batch_size = get_step_list(exp_config['batch_size'])
     epochs = get_step_list(exp_config['epochs'])
 
+    print(get_factor_list(exp_config['learning_rate']))
     lr = trial.suggest_categorical('learning_rate', get_factor_list(exp_config['learning_rate']))
     weight_decay = trial.suggest_categorical('weight_decay', get_factor_list(exp_config['weight_decay']))
 
