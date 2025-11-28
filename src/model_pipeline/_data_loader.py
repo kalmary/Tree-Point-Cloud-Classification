@@ -49,9 +49,10 @@ class Dataset(IterableDataset):
         Generator over all keys. Each worker processes all keys,
         but only its assigned chunks within each key.
         """
-
+        print(self.path)
         with h5py.File(self.path, 'r') as h_file:
             keys = list(h_file.keys())
+            print(keys)
             if self.shuffle:
                 random.shuffle(keys)
 
