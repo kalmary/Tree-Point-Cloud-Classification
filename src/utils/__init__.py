@@ -1,2 +1,2 @@
 from .nn_utils import *
-import pcd_manipulation
+from .pcd_manipulation import *
