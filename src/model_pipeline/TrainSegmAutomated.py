@@ -52,26 +52,26 @@ def check_models(model_configs_paths: list[pth.Path],
         model_config = load_json(model_config_path)
         model_config = convert_str_values(model_config)
 
-        try:
-            model = RandLANet(model_config, 10)
-            model.eval()
-            model_summary = summary(model, input_size=max_input_size, verbose=0)
-            estimated_memory_GB = (model_summary.total_param_bytes + model_summary.total_output_bytes) / (1024 ** 3 )
+        # try:
+        model = RandLANet(model_config, 10)
+        model.eval()
+        model_summary = summary(model, input_size=max_input_size, verbose=0)
+        estimated_memory_GB = (model_summary.total_param_bytes + model_summary.total_output_bytes) / (1024 ** 3 )
 
-            if estimated_memory_GB > max_memory_GB:
-                    raise MemoryError(f"Estimated memory {estimated_memory_GB:.2f} GB exceeds limit of {max_memory_GB:.2f} GB.")
+        if estimated_memory_GB > max_memory_GB:
+                raise MemoryError(f"Estimated memory {estimated_memory_GB:.2f} GB exceeds limit of {max_memory_GB:.2f} GB.")
 
-            del model, model_summary
+        del model, model_summary
 
-            if verbose:
-                print(f"Model {model_config_path.name} compiled successfully\nEstimated memory: {estimated_memory_GB:.2f} GB.\n")
+        if verbose:
+            print(f"Model {model_config_path.name} compiled successfully\nEstimated memory: {estimated_memory_GB:.2f} GB.\n")
 
-        except Exception as e:
-            if verbose:
-                print(f"Error compiling model {model_config_path.name}:\n{e}")
-            model_configs_paths.pop(index)
-        else:
-            model_configs.append(model_config)  
+        # except Exception as e:
+        #     if verbose:
+        #         print(f"Error compiling model {model_config_path.name}:\n{e}")
+        #     model_configs_paths.pop(index)
+        # else:
+        model_configs.append(model_config)  
     
     return model_configs, model_configs_paths
 
