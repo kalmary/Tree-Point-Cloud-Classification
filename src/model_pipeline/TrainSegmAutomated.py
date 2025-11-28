@@ -192,7 +192,7 @@ def load_config(base_dir: Union[str, pth.Path], device_name: str, mode: int = 0)
                              "3 - multiple trainings, with optuna.")
 
     base_dir = pth.Path(base_dir)
-    config_files_dir = base_dir.joinpath('config_files')
+    config_files_dir = base_dir.joinpath('training_configs')
     model_configs_dir = base_dir.joinpath('model_configs')
 
     model_configs_paths_list = list(model_configs_dir.rglob('*.json'))
