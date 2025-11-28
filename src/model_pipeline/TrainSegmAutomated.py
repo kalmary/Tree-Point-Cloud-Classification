@@ -94,6 +94,7 @@ def get_factor_list(param_value_list: list[Union[float]]) -> list[Union[float]]:
     
     num = start
     while num > stop:
+        print(num)
         factor_list.append(num)
         num *= factor
 
