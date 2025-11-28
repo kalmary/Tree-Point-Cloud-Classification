@@ -24,7 +24,6 @@ from tqdm import tqdm
 
 src_dir = pth.Path(__file__).parent.parent
 sys.path.append(str(src_dir))
-print(src_dir)
 
 from _train_single_case import train_model
 from utils import load_json, save2json, save_model, convert_str_values
@@ -49,6 +48,7 @@ def check_models(model_configs_paths: list[pth.Path],
     # check each model if it compiles and take not more than max memory
     model_configs = []
     for index, model_config_path in enumerate(model_configs_paths.copy()):
+        print(model_config_path)
         model_config = load_json(model_config_path)
         model_config = convert_str_values(model_config)
 
