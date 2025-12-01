@@ -320,19 +320,21 @@ class Checkpoint:
 
         if len(result_hist['acc_hist']) > 1:
             plotter_obj = Plotter(best_config['num_classes'], plots_dir = plot_dir)
-            plotter_obj.plot_loss(f'loss_{model_name}.png', 
-                                result_hist['loss_hist'], result_hist['loss_v_hist'])
-            logger.info(f'Loss plot for {model_name} saved to: {plot_dir}')
 
-            plotter_obj.plot_accuracy(f'acc_{model_name}.png', 
+
+            plotter_obj.plot_metric_hist(f'Loss_{model_name}.png',
+                                         result_hist['loss_hist'],
+                                         result_hist['loss_v_hist'])
+
+            plotter_obj.plot_metric_hist(f'Accuracy_{model_name}.png', 
                                     result_hist['acc_hist'],
                                     result_hist['acc_v_hist'])
             
-            plotter_obj.plot_miou(f'miou_{model_name}.png', 
+            plotter_obj.plot_metric_hist(f'mIoU_{model_name}.png', 
                                     result_hist['miou_hist'],
                                     result_hist['miou_v_hist'])
 
-            logger.info(f'Accuracy plot for {model_name} saved to: {plot_dir}')
+            logger.info(f'Metrics history plots for {model_name} saved to: {plot_dir}')
 
 
         self.save_new = False
