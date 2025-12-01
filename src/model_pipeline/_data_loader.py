@@ -74,6 +74,7 @@ class Dataset(IterableDataset):
 
     def _add_gaussian_noise(self, cloud, std=0.01):
         noise = torch.randn_like(cloud) * std
+        noise = noise.to(cloud.device)
         return cloud + noise
 
     def _process_cloud(self):
@@ -102,6 +103,7 @@ class Dataset(IterableDataset):
 
 
             if self.shuffle:
+                cloud_tensor = cloud_tensor.to(self.device)
                 cloud_tensor = self._add_gaussian_noise(cloud_tensor, std=0.015)
                 cloud_tensor = rotate_points(cloud_tensor, device=self.device)
                 cloud_tensor = tilt_points(cloud_tensor,
@@ -111,10 +113,11 @@ class Dataset(IterableDataset):
                                                 min_scale=0.95,
                                                 max_scale=1.05,
                                                 device=self.device)
+                cloud_tensor = cloud_tensor.cpu()
 
             cloud_tensor -= cloud_tensor.mean(dim=0)
 
-            cloud_tensor = cloud_tensor.cpu()
+
 
            
             if features_tensor is not None:

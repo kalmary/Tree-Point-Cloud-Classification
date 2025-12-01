@@ -4,6 +4,7 @@ import fpsample
 import random
 
 def rotate_points(points: torch.Tensor, device = torch.device('cpu')) -> torch.Tensor:
+
     """
     Rotates 3D points around the Z-axis (up-axis) by a given angle using PyTorch tensors.
 
@@ -16,6 +17,7 @@ def rotate_points(points: torch.Tensor, device = torch.device('cpu')) -> torch.T
         torch.Tensor: The rotated points as a (N, 3) PyTorch tensor.
                       The dtype will match the input 'points' tensor.
     """
+    points = points.to(device)
     angle_degrees = torch.rand(1) * 360.
     angle_degrees = angle_degrees.item()
 
@@ -34,12 +36,7 @@ def rotate_points(points: torch.Tensor, device = torch.device('cpu')) -> torch.T
         [0.0,       0.0,        1.0]
     ], dtype=points.dtype).to(device)
 
-    # Apply rotation using tensor matrix multiplication
-    # The @ operator performs matrix multiplication for PyTorch tensors
-    # We transpose the rotation_matrix because 'points' is (N, 3) and we want to multiply
-    # each point (row vector) by the rotation matrix.
-    # Alternatively, you could do torch.matmul(points, rotation_matrix.T)
-    # or if points were (3, N), then torch.matmul(rotation_matrix, points)
+
     points = points @ rotation_matrix.T
     return points
 
@@ -67,6 +64,7 @@ def tilt_points(
                       The dtype will match the input 'points' tensor.
     """
     dtype = points.dtype
+    points = points.to(device)
 
     # Generate random angles for X and Y axes
     # torch.rand(1) generates a number between 0 and 1.
@@ -126,7 +124,7 @@ def transform_points(
                       The dtype will match the input 'points' tensor.
     
     """
-
+    points = points.to(device)
     dtype = points.dtype
 
     scale_x = (torch.rand(1, dtype=dtype) * (max_scale - min_scale) + min_scale).item()
