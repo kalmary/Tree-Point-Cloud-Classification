@@ -70,7 +70,7 @@ pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 --index-url https
 For training purposes:
 
 ```bash
-cd model_pipeline
+cd src/model_pipeline
 python TrainSegmAutomated.py --help
 ```
 
@@ -108,4 +108,5 @@ options:
 ---
 
 ### 4. Main piplines after training <a name="piplines"></a>
+
 
