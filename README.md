@@ -1,7 +1,10 @@
 ![BANNER](https://github.com/kalmary/RandLANet_Segmentation/blob/readme-preparation/img/Banner.png)
 
 
-**RandLANet_Segmentation** is a pure Python tool for point cloud data segmentation. Process is done with use of RandLANet model
+**RandLANet_Segmentation** is a set of tools for point cloud semantic segmentation using the RandLANet architecture. RandLANet is a deep learning model designed to process large-scale point clouds. Its architecture, which utilizes a random sampling strateg. The repository includes tools for defining the model, training it, and performing segmentation on new files. Key Features:
+- Model Definition: Contains the necessary code to define and build the RandLANet model architecture.
+- Training & Evaluation: Tools for training the model on your custom datasets and rigorously evaluating its performance.
+- Inference & Segmentation: Utility to perform semantic segmentation on new point cloud files using pre-trained models.
 
 ---
 
@@ -140,6 +143,7 @@ Output of --help
 | Pipline for processing point clouds in arrays | Pipline for processing laz files |
 | :---: | :---: |
 | Using main.py.... | Opis 2 |
+
 
 
 
