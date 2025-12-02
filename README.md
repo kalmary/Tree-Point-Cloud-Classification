@@ -1,20 +1,41 @@
 ![BANNER](https://github.com/kalmary/RandLANet_Segmentation/blob/readme-preparation/img/Banner.png)
 
+# Table of contents
+1. [Overview](#overview)
+2. [Instalation](#installation)
+3. [Folder Structure](#fstructure)
+4. [Usage](#usage)
+5. [Main piplines after training](#piplines)
+6. [Citation](#citation)
 
-**RandLANet_Segmentation** is ...
+--- 
+# 1. Overview <a name="overview"></a>
+
+**RandLANet_Segmentation** is a set of tools for point cloud semantic segmentation using the RandLANet architecture. RandLANet is a deep learning model designed to process large-scale point clouds. Its architecture, which utilizes a random sampling strateg. The repository includes tools for defining the model, training it, and performing segmentation on new files. Key Features:
+- Data preprocessing: cut, decimate and distribite data for training model,
+- Model definition: necessary code to define and build the RandLANet model architecture, allows for scalability and adjustment for hardware-specific needs,
+- Training & Evaluation: Tools for training the model on custom datasets and evaluating its performance,
+- Inference & Segmentation: Utility to perform semantic segmentation on new point cloud files using pre-trained models/ segmentation on preloaded arrays.
+
+
+
+Our model is based on:
+- https://github.com/QingyongHu/RandLA-Net
+- https://github.com/aRI0U/RandLA-Net-pytorch
+
+
+![IMG](https://github.com/kalmary/RandLANet_Segmentation/blob/readme-preparation/img/RandLANet_scheme.png)
+
+
+Key modifications we added:
+- like memory efficient, gpu - based knn search,
+- model configurability from .json file,
+- better decoder upsampling.
+
 
 ---
 
-### Table of contents
-1. [Instalation](#instalation)
-2. [Folder Structure](#fstructure)
-3. [Usage](#usage)
-4. [Main piplines after training](#piplines)
-
-
----
-
-# 1. Instalation: <a name="instalation"></a>
+# 1. Instalation: <a name="installation"></a>
 
 ```bash
 
@@ -140,6 +161,15 @@ Output of --help
 | Pipline for processing point clouds in arrays | Pipline for processing laz files |
 | :---: | :---: |
 | Using main.py.... | Opis 2 |
+---
+# 6. Citation <a name="citation"></a>
+
+
+
+
+
+
+
 
 
 
