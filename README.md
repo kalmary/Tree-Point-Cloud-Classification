@@ -14,7 +14,7 @@
 
 ---
 
-### 1.Instalation:  <a name="instalation"></a>
+### 1. Instalation:
 
 ```bash
 
@@ -37,7 +37,7 @@ pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 --index-url https
 
 ---
 
-### 2.Folder structure <a name="fstructure"></a>
+### 2. Folder structure:
 
 ```
 .
@@ -60,7 +60,7 @@ pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 --index-url https
 
 ```
 
-### 3.Usage <a name="usage"></a>
+### 3. Usage
 
 ---
 
@@ -123,11 +123,12 @@ Output of --help
 
 ---
 
-### 4. Main piplines after training <a name="piplines"></a>
+### 4. Main piplines after training
 
 
 | Pipline for processing point clouds in arrays | Pipline for processing laz files |
 | :---: | :---: |
 | Using main.py.... | Opis 2 |
+
 
 
