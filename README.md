@@ -1,4 +1,4 @@
-![BANNER](https://github.com/kalmary/RandLANet_Segmentation/blob/readme-preparation/src/img/Banner.png)
+![BANNER](https://github.com/kalmary/RandLANet_Segmentation/blob/readme-preparation/img/Banner.png)
 
 
 **RandLANet_Segmentation** is ...
@@ -132,3 +132,4 @@ Output of --help
 | Pipline for processing point clouds in arrays | Pipline for processing laz files |
 | :---: | :---: |
 | Using main.py.... | Opis 2 |
+
