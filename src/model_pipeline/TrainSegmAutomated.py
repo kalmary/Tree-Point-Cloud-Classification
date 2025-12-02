@@ -213,6 +213,8 @@ def load_config(base_dir: Union[str, pth.Path], device_name: str, mode: int = 0)
     
     training_config = convert_str_values(training_config)
     model_configs_list, _ = check_models(model_configs_paths_list, max_input_size=(training_config['batch_size'][-1], 8192, 4))
+    
+    assert model_configs_list != 0, "No models compiled. Check model_configs - most likely too big models are defined"
 
     if mode == 3:
         device = torch.device('cuda') if (('cuda' in device_name.lower() or 'gpu' in device_name.lower()) and torch.cuda.is_available()) else torch.device('cpu')

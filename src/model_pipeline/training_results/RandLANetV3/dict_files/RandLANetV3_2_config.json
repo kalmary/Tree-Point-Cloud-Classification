@@ -8,18 +8,18 @@
     "batch_size": 8,
     "num_points": 8192,
     "num_neighbors": 16,
-    "epochs": 125,
+    "epochs": 75,
     "focal_loss_gamma": 3.0,
     "general_convention_comment": "start, stop, step",
     "learning_rate": 0.001,
-    "weight_decay": 0.001,
+    "weight_decay": 0.0001,
     "learning_rate_comment": "low_lr, high_lr, factor",
     "scheduler_params_comment": [],
-    "pc_start": 0.3,
+    "pc_start": 0.2,
     "pc_start_comment": "start, stop, step",
-    "div_factor": 81,
+    "div_factor": 11,
     "div_factor_comment": "low, high, factor",
-    "final_div_factor": 4886,
+    "final_div_factor": 501,
     "final_div_factor_comment": "low, high, factor",
     "device": "cuda",
     "model": null,
@@ -68,9 +68,10 @@
         },
         "fc_end": {
             "layers": [
-                20
+                24,
+                16
             ],
-            "dropout": 0.35
+            "dropout": 0.4
         },
         "max_voxel_dim": 20
     }
