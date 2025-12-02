@@ -25,16 +25,13 @@ git clone https://github.com/kalmary/RandLANet_Segmentation.git
 cd RandLANet_Segmentation
 
 # Create and activate a Virtual Environment:
-
 python -m venv .venv
 source .venv/bin/activate
 
 # Install all requirements, without pytorch and cuda
-
 pip install requirements.txt
 
 # Tested on this, but should work with any other version
-
 pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu128 
 ```
 
@@ -132,4 +129,5 @@ Output of --help
 | Pipline for processing point clouds in arrays | Pipline for processing laz files |
 | :---: | :---: |
 | Using main.py.... | Opis 2 |
+
 
