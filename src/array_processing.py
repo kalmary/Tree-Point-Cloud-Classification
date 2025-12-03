@@ -234,6 +234,8 @@ class SegmentClass:
             voxel_idx = np.sort(voxel_idx)
 
             checksum += voxel_idx.shape[0]
+            if self.pbar_bool:
+                pbar0.set_postfix({"Number of processed points": checksum})
 
             voxel = np.concatenate([voxel, intensity_voxel.reshape(-1, 1)], axis = 1)
 
