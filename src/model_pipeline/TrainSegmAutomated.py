@@ -431,7 +431,7 @@ def objective_function(trial: optuna.Trial,
     model_config.update({
         'num_neighbors': num_neighbors
     })
-    
+
     model.config['num_classes'] = exp_config['num_classes']
 
     exp_config = exp_config.copy()
@@ -506,6 +506,7 @@ def objective_function(trial: optuna.Trial,
 def optuna_based_training(exp_config: list[dict], # only one, non converted conf given in list
                           model_name: str,
                           n_trials: int = 100) -> None:
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     
     logger = logging.getLogger(__name__)
     logger.info(f'START: optuna_based_training.')
@@ -520,6 +521,7 @@ def optuna_based_training(exp_config: list[dict], # only one, non converted conf
 
     study = optuna.create_study(
         sampler=optuna.samplers.TPESampler(),
+        name = f'{model_name}_{timestamp}_optuna',
         storage=f'sqlite:///db.sqlite3',
         directions=['maximize'],
         pruner=pruner)
