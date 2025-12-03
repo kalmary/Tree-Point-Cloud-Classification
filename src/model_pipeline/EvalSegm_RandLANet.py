@@ -25,25 +25,21 @@ from utils import Plotter, ClassificationReport
 
 
 def _eval_model(config_dict: dict,
-               spectrogram_params: dict,
-               filtration_params: dict,
-               model: nn.Module) -> tuple[list, list, np.ndarray, np.ndarray, np.ndarray]:
+                model: nn.Module) -> tuple[list, list, np.ndarray, np.ndarray, np.ndarray]:
     
-    val_dataset = Dataset(base_dir=config_dict['data_path_test'],
+    test_dataset = Dataset(base_dir=config_dict['data_path_test'],
                                     num_points=config_dict['num_points'],
                                     batch_size=config_dict['batch_size'],
                                     shuffle=False,
                                     device=torch.device('gpu'))
 
-    valLoader = DataLoader(val_dataset,
+    testLoader = DataLoader(test_dataset,
                              batch_size=None,
                              num_workers = 14,
                              pin_memory=False)
-                             # prefetch_factor=None,
-                             # pin_memory_device='cuda')
 
-    total = get_dataset_len(valLoader, verbose=False)
-    weights = calculate_class_weights(valLoader, 
+    total = get_dataset_len(testLoader, verbose=False)
+    weights = calculate_class_weights(testLoader, 
                                       config_dict['num_classes'], 
                                       total=total, 
                                       device=config_dict['device'],
@@ -60,7 +56,7 @@ def _eval_model(config_dict: dict,
     all_probs = np.zeros((0, config_dict['num_classes']))
     all_labels = []
 
-    pbar = tqdm(valLoader, total=total, desc="Testing", unit="batch")
+    pbar = tqdm(testLoader, total=total, desc="Testing", unit="batch")
     with torch.no_grad():
         for batch_x, batch_y in pbar:
 

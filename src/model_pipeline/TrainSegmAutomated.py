@@ -159,6 +159,7 @@ def generate_experiment_configs(training_config: dict,
             exp_config = static_params.copy()
             exp_config.update(dynamic_config)
             exp_config['model_config'] = model_config
+            exp_config['model_config']['num_classes'] = exp_config['num_classes']
             
             exp_configs.append(exp_config)
         
@@ -430,6 +431,8 @@ def objective_function(trial: optuna.Trial,
     model_config.update({
         'num_neighbors': num_neighbors
     })
+    
+    model.config['num_classes'] = exp_config['num_classes']
 
     exp_config = exp_config.copy()
     exp_config.update({

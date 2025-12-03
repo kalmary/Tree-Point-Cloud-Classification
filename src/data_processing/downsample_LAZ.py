@@ -19,7 +19,7 @@ main_dir = pth.Path(__file__).parent.parent
 sys.path.append(str(main_dir))
 
 from utils.pcd_manipulation import voxelGridFragmentation
-from utils import convert_str_values
+from utils import convert_str_values, load_json, save2json
 
 def decimate_chunk_laz(work_dir: pth.Path, goal_dir: pth.Path, folder_split: dict) -> None:
     if not work_dir.exists():
@@ -137,7 +137,7 @@ def decimate_chunk_laz(work_dir: pth.Path, goal_dir: pth.Path, folder_split: dic
 
 
 
-def convert_dataset(work_dir: pth.Path, goal_dir: pth.Path):
+def convert_dataset(work_dir: pth.Path, goal_dir: pth.Path) -> tuple[pth.Path, pth.Path, pth.Path]:
     work_train = work_dir.joinpath('train')
     work_test = work_dir.joinpath('test')
     work_val = work_dir.joinpath('val')
@@ -192,6 +192,8 @@ def convert_dataset(work_dir: pth.Path, goal_dir: pth.Path):
     convert2_h5(train_paths, 0)
     convert2_h5(test_paths, 1)
     convert2_h5(validation_paths, 2)
+
+    return goal_dir.joinpath('train.h5'), goal_dir.joinpath('test.h5'), goal_dir.joinpath('validation.h5')
 
 
 
@@ -249,7 +251,7 @@ def rebalance_dataset(work_dir: pth.Path, folder_split: dict, tolerance=0.03):
                     raise FileExistsError(f"Destination file already exists: {dest}")
                 shutil.move(str(f), str(dest))
 
-            move_log[f"{split_keys[s]} → {split_keys[d]}"] = move_n
+            move_log[f"{split_keys[s]} -> {split_keys[d]}"] = move_n
             diffs[s] -= move_n
             diffs[d] += move_n
             files = files[move_n:]
@@ -311,6 +313,31 @@ def argparser():
     return parser.parse_args()
 
 
+def update_paths_config(path2train: pth.Path, path2test: pth.Path, path2val: pth.Path):
+
+
+    def _update_path(path2dataset: Union[str, pth.Path], dataset_name: str):
+
+        config_dir = pth.Path(__file__).parent.parent.joinpath('model_pipeline/training_configs')
+        
+        path2config_single = config_dir.joinpath(f'config_train_single.json')
+        path2config = config_dir.joinpath(f'config_train.json')
+
+        config_single = load_json(path2config_single)
+        config = load_json(path2config)
+
+        config_single[dataset_name] = str(path2dataset)
+        config[dataset_name] = str(path2dataset)
+
+        save2json(config_single, path2config_single)
+        save2json(config, path2config)
+
+    _update_path(path2train, 'data_path_train')
+    _update_path(path2test, 'data_path_test')
+    _update_path(path2val, 'data_path_val')
+
+
+
 
 def main():
     parser = argparser()
@@ -333,7 +360,14 @@ def main():
 
     decimate_chunk_laz(source, decimated, folder_split)
     rebalance_dataset(decimated, folder_split)
-    convert_dataset(decimated, converted)
+
+    path2train, path2test, path2val = convert_dataset(decimated, converted)
+
+    update_paths_config(path2train, path2test, path2val)
+
+    
+
+
 
 if __name__ == '__main__':
     main()
