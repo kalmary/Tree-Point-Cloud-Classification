@@ -521,7 +521,7 @@ def optuna_based_training(exp_config: list[dict], # only one, non converted conf
 
     study = optuna.create_study(
         sampler=optuna.samplers.TPESampler(),
-        name = f'{model_name}_{timestamp}_optuna',
+        name = f'{model_name}_{timestamp}',
         storage=f'sqlite:///db.sqlite3',
         directions=['maximize'],
         pruner=pruner)
