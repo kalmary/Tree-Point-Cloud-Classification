@@ -178,13 +178,16 @@ Available flags:
 If more customizable approach is necessary/ point clouds are preloaded, you can also use just segmentation processing parts:
 ```python
 from array_processing import SegmentClass
+import numpy as np
 # voxel_size 100. is what we found to be optimal
 # you can modify voxel_size for your needs - lower for denser clouds
+
 segment_clas = SegmentClass(voxel_size_big=np.array([100., 100.],), 
                              model_name=model_name,              # str
                              device=device,                      # torch.device
                              pbar_bool = kwargs.get('verbose'))  # bool
-pcd = np.random.random(size = (10e6, 3))*100
+
+pcd = np.random.random(size = (10e6, 3))*100 # swap with actual point cloud
 
 labels: np.ndarray = segment_class.segment_pcd(points, intensity)
 ```
@@ -209,6 +212,7 @@ To cite the original paper about RandLANet use:
   year = {2019}
 }
 ```
+
 
 
 
