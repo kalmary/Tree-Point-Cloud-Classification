@@ -8,8 +8,8 @@
     1. [Preprocessing](#preprocessing)
     2. [Training](#training)
     3. [Evaluation](#evaluation)
-6. [Final data processing](#piplines)
-7. [Citation](#citation)
+5. [Final data processing](#piplines)
+6. [Citation](#citation)
 
 --- 
 # 1. Overview <a name="overview"></a>
@@ -21,12 +21,7 @@
 - Inference & Segmentation: Utility to perform semantic segmentation on new point cloud files using pre-trained models/ segmentation on preloaded arrays.
 
 
-
-Our model is based on:
-- https://github.com/QingyongHu/RandLA-Net
-- https://github.com/aRI0U/RandLA-Net-pytorch
-
-
+You can see the RandLANet scheme from original paper [[1]](#cite1) on the picture below:
 ![IMG](https://github.com/kalmary/RandLANet_Segmentation/blob/readme-preparation/img/RandLANet_scheme.png)
 
 
@@ -197,6 +192,23 @@ labels: np.ndarray = segment_class.segment_pcd(points, intensity)
 
 # 6. Citation <a name="citation"></a>
 
+Our model is based on:
+- https://github.com/QingyongHu/RandLA-Net
+- https://github.com/aRI0U/RandLA-Net-pytorch
+
+To cite the original paper about RandLANet use:
+
+[1] - RandLA-Net: Efficient Semantic Segmentation of Large-Scale Point Clouds  <a name="cite1"></a>
+```bibtex
+@article{RandLA-Net,
+  arxivId = {1911.11236},
+  author = {Hu, Qingyong and Yang, Bo and Xie, Linhai and Rosa, Stefano and Guo, Yulan and Wang, Zhihua and Trigoni, Niki and Markham, Andrew},
+  eprint = {1911.11236},
+  title = {{RandLA-Net: Efficient Semantic Segmentation of Large-Scale Point Clouds}},
+  url = {http://arxiv.org/abs/1911.11236},
+  year = {2019}
+}
+```
 
 
 
