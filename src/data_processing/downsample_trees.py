@@ -9,7 +9,7 @@ import sys
 import random
 
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import LabelEncoder
 
 import laspy
 import numpy as np
@@ -36,7 +36,7 @@ def decimate_chunk_laz(work_dir: pth.Path, goal_dir: pth.Path, folder_split: dic
     val_pth = goal_dir.joinpath('val')
     val_pth.mkdir(exist_ok=True, parents=True)
 
-    all_paths = list(work_dir.rglob('*.las')) # todo change to desired format later
+    all_paths = list(work_dir.rglob('*.laz')) # todo change to desired format later
     random.shuffle(all_paths)
 
     train_paths, test_paths = train_test_split(all_paths, 
@@ -59,9 +59,7 @@ def decimate_chunk_laz(work_dir: pth.Path, goal_dir: pth.Path, folder_split: dic
     progress_val = tqdm(enumerate(val_paths), desc=f'Decimation of validation data in folder: {work_dir}',
                           total=len(val_paths))
 
-    scaler = MinMaxScaler(feature_range=(0, 10.))
-
-    def decimate_folder(generator, goal):
+    def decimate_folder(generator, goal, n_points: int = 16384):
         cut_label = 0
         for _, path in generator:
             
@@ -81,54 +79,6 @@ def decimate_chunk_laz(work_dir: pth.Path, goal_dir: pth.Path, folder_split: dic
                 points = points - np.mean(points, axis =0)
 
 
-                classification = np.asarray(las.classification, dtype=np.int32)
-
-                points = points[classification>cut_label]
-
-                intensity = np.asarray(las.intensity, dtype=np.float32)
-                intensity = scaler.fit_transform(intensity.reshape(-1, 1))
-                # intensity = intensity / (2 ** 16 - 1)
-                intensity = intensity.flatten()
-
-                intensity = intensity[classification>cut_label]
-
-                classification = classification[classification >cut_label]
-                classification -= 1 # TODO remove cut cabel part for official repo use
-
-
-                for i, (sampled_idx, noise) in enumerate(voxelGridFragmentation(points,
-                                                                                voxel_size=np.array([20., 20.]), #TODO check if it works, update in other places
-                                                                                num_points=2*8192,
-                                                                                shuffle=True)):
-                    if noise:
-                        continue
-
-                    points_chunk = points[sampled_idx]
-                    points_chunk -= np.mean(points, axis = 0)
-
-                    intensity_chunk = intensity[sampled_idx]
-                    classification_chunk = classification[sampled_idx]
-
-                    if np.unique(classification_chunk).flatten().shape[0] < 3: # TODO a way to avoid imbalance of dataset with huge number of ground points.
-                        continue
-
-                    chunk = np.concatenate([points_chunk,
-                                            intensity_chunk.reshape(-1, 1),
-                                            classification_chunk.reshape(-1, 1)],
-                                            axis = 1)
-                    
-                    n_org = points_chunk.shape[0]
-                    chunk_num += 1
-
-                    generator.set_postfix({
-                        'Points': f"{n}/ {total_points}, ({n_org} -> {points_chunk.shape[0]})",
-                        'Partitioning': f"{i}"
-                    })
-
-                    file_name = goal.joinpath(path.stem+f'_{chunk_num}_{i}.npy')
-                    np.save(file_name, chunk)
-
-                    n+=n_org
 
     decimate_folder(progress_train, train_pth)
     decimate_folder(progress_test, test_pth)
@@ -141,6 +91,9 @@ def convert_dataset(work_dir: pth.Path, goal_dir: pth.Path) -> tuple[pth.Path, p
     work_train = work_dir.joinpath('train')
     work_test = work_dir.joinpath('test')
     work_val = work_dir.joinpath('val')
+
+    if work_dir == goal_dir:
+        return work_train, work_test, work_val
 
     chunk_num_point = 2*8192
     chunk_h5_shape = 30
@@ -296,6 +249,7 @@ def argparser():
     parser.add_argument(
         '--converted_path',
         type=str,
+        default="",
         help=(
             "Final path with files meant for further computations with model pipeline."
         )
@@ -349,7 +303,8 @@ def main():
     decimated = pth.Path(decimated)
 
     converted = parser.converted_path
-    converted = pth.Path(converted)
+    if len(converted) == 0:
+        converted = decimated
 
     folder_split = {
         'train_ratio': parser.folder_split[0],
@@ -361,6 +316,8 @@ def main():
     decimate_chunk_laz(source, decimated, folder_split)
     rebalance_dataset(decimated, folder_split)
 
+
+    
     path2train, path2test, path2val = convert_dataset(decimated, converted)
 
     update_paths_config(path2train, path2test, path2val)

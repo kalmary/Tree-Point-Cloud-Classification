@@ -7,7 +7,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau, OneCycleLR
 import torch.multiprocessing as mp
 from torch.utils.data import DataLoader
 
-from RandLANet_CB import RandLANet
+from model_pipeline.model import RandLANet
 
 from _data_loader import *
 

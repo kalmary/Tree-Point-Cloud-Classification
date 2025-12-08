@@ -10,7 +10,7 @@ import pathlib as pth
 
 
 
-from RandLANet_CB import RandLANet
+from model_pipeline.model import RandLANet
 from _data_loader import *
 
 import os
