@@ -74,18 +74,6 @@ def check_models(model_configs_paths: list[pth.Path],
     
     return model_configs, model_configs_paths
 
-def get_step_list(param_value_list: list[Union[int, float]]) -> list[Union[int, float]]:
-    """"Generate a list of values based on the given parameter value and type of list elements."""
-
-    start, stop, step = param_value_list
-    
-    if all(isinstance(x, int) for x in [start, stop, step]):
-        return list(range(int(start), int(stop + step), int(step)))
-    elif all(isinstance(x, (int, float)) for x in [start, stop, step]):
-        return [float(x) for x in np.arange(float(start), float(stop + step), float(step))]
-    else:
-        raise ValueError(f"Invalid parameter values: {param_value_list}. Must be all int or all float.")
-
 def get_factor_list(param_value_list: list[Union[float]]) -> list[Union[float]]:
     """"Generate a list of values based on the given parameter value of list elements."""
 
@@ -101,7 +89,18 @@ def get_factor_list(param_value_list: list[Union[float]]) -> list[Union[float]]:
     factor_list.sort()
     return factor_list
 
+def get_step_list(param_value_list: list[Union[int, float]]) -> list[Union[int, float]]:
+    """"Generate a list of values based on the given parameter value and type of list elements."""
+
+    start, stop, step = param_value_list
     
+    if all(isinstance(x, int) for x in [start, stop, step]):
+        return list(range(int(start), int(stop + step), int(step)))
+    elif all(isinstance(x, (int, float)) for x in [start, stop, step]):
+        return [float(x) for x in np.arange(float(start), float(stop + step), float(step))]
+    else:
+        raise ValueError(f"Invalid parameter values: {param_value_list}. Must be all int or all float.")
+
 
 def generate_experiment_configs(training_config: dict, 
                                 model_configs_list: Sequence[dict],
