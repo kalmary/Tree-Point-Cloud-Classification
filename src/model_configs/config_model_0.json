@@ -1,0 +1,23 @@
+{
+    "in_channels": 5,
+
+    "initial_conv": {
+        "out_channels": 64,
+        "kernel_size": 7,
+        "stride": 2,
+        "padding": 3
+    },
+    "residual_blocks_config": [
+        {"in_channels": 64, "out_channels": 64, "kernel_size": 3, "stride": 1, "expansion": 4},
+        {"in_channels": 64, "out_channels": 128, "kernel_size": 3, "stride": 2, "expansion": 4},
+        {"in_channels": 128, "out_channels": 256, "kernel_size": 3, "stride": 2, "expansion": 4},
+        {"in_channels": 256, "out_channels": 512, "kernel_size": 3, "stride": 2, "expansion": 4},
+        {"in_channels": 512, "out_channels": 1024, "kernel_size": 3, "stride": 2, "expansion": 4}
+    ],
+    "head_layers": {
+        "fc1_output_size": 512
+    },
+    "global_params": {
+        "dropout": 0.4
+    }
+}

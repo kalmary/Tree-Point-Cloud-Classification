@@ -1,0 +1,21 @@
+{   
+    "train_repeat": 3,
+    "train_repeat_comment": "How many times training is done for the same config, to get average/ best results",
+
+    "data_path_train": "/home/michal-siniarski/Dokumenty/Z32/BSP/sounds/czernica_09.25/distributed_small/train",
+    "data_path_test": "/home/michal-siniarski/Dokumenty/Z32/BSP/sounds/czernica_09.25/distributed_small/test",
+    "data_path_val": "/home/michal-siniarski/Dokumenty/Z32/BSP/sounds/czernica_09.25/distributed_small/val",
+
+    "num_classes": 19,
+    "batch_size": 20,
+    "epochs": 100,
+    
+    "learning_rate": 0.001,
+
+    "input_dim": 350,
+
+    "scheduler_params_comment": [],
+    "pc_start": 0.25,
+    "div_factor": 50,
+    "fin_div_factor": 1000
+}
