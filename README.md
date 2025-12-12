@@ -1,5 +1,4 @@
-![BANNER](https://github.com/kalmary/RandLANet_Segmentation/blob/readme-preparation/img/Banner.png)
-
+![BANNER](https://github.com/kalmary/Tree-Point-Cloud-Classification/blob/main/img/Banner_tree_point.png)
 # Table of contents
 1. [Overview](#overview)
 2. [Repository Structure](#fstructure)
@@ -216,6 +215,7 @@ To cite the original paper about RandLANet use:
 ### **License**
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
 
 
 
