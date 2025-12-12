@@ -5,6 +5,7 @@ import h5py
 import shutil
 from tqdm import tqdm
 import sys
+import fpsample
 
 import random
 
@@ -18,8 +19,8 @@ import sys
 main_dir = pth.Path(__file__).parent.parent
 sys.path.append(str(main_dir))
 
-from utils.pcd_manipulation import voxelGridFragmentation
 from utils import convert_str_values, load_json, save2json
+import pandas as pd
 
 def decimate_chunk_laz(work_dir: pth.Path, goal_dir: pth.Path, folder_split: dict) -> None:
     if not work_dir.exists():
@@ -60,24 +61,31 @@ def decimate_chunk_laz(work_dir: pth.Path, goal_dir: pth.Path, folder_split: dic
                           total=len(val_paths))
 
     def decimate_folder(generator, goal, n_points: int = 16384):
-        cut_label = 0
         for _, path in generator:
-            
-                n = 0
-                chunk_num = 0
-
-                with laspy.open(path) as f:
-                    total_points = f.header.point_count
-
 
                 try:
                     las = laspy.read(path)
                 except Exception as e:
                     print(e)
+                    continue
 
                 points = np.vstack((las.x, las.y, las.z)).transpose()
                 points = points - np.mean(points, axis =0)
+                
+                sampled_idx = np.arange(points.shape[0], np.int32)
+                if points.shape[0] > n_points:
+                    sampled_idx = fpsample.bucket_fps_kdline_sampling(points, n_points, h=7)
+                elif n_points // 2 < points.shape[0] < n_points:
+                    sampled_idx = np.random.choice(points.shape[0], n_points, replace=False)
+                elif points.shape[0] == n_points:
+                    pass
+                else:
+                    continue
 
+                points = points[sampled_idx]  # Map back to original indices
+
+                file_goal_path = goal.joinpath(f'{path.stem}_.npy')
+                np.save(file_goal_path, points)
 
 
     decimate_folder(progress_train, train_pth)
@@ -264,8 +272,55 @@ def argparser():
         )
     )
 
+    parser.add_argument(
+    '--metadata_path',
+    type=Union[str, pth.Path],
+    default="./data/metadata.csv",
+    help=(
+        "Path to all species listed in original tree dataset.\n" \
+        "If not given defaults to ./data/tree_metadata_dev.csv (original metadata)"
+    )
+    )
+
+    parser.add_argument(
+    '--species_path',
+    type=Union[str, pth.Path],
+    default="./data/species.txt",
+    help=(
+        "Path to all species meant to be processed.\n" \
+        "If not given defaults to ./data/species.txt"
+    )
+    )
+
     return parser.parse_args()
 
+def get_metadata(path2csv: Union[str, pth.Path], species: list):
+    df = pd.read_csv(path2csv)
+    df = df[df['species'].isin(species)]
+
+    specified_species = df[df['species'].isin(species)].copy()
+    other_species = df[~df['species'].isin(species)].copy()
+
+    le = LabelEncoder()
+    specified_species['species_number'] = le.fit_transform(specified_species['species']) # last class is 'others'
+
+    # Merge all other species into "others" and limit to average count
+    if len(other_species) > 0:
+        # Change species name to "others" for all other species
+        other_species['species'] = 'others'
+
+        # Assign species_number = 0
+        other_species['species_number'] = specified_species['species_number'].max() + 1
+
+    df = pd.concat([specified_species, other_species], ignore_index=True)
+
+    df = df[['treeID', 'species', 'species_number']].copy()
+    species_number_counts = df.groupby(['species', 'species_number']).size().reset_index(name='count')
+    species_number_counts.to_csv('output.csv')
+
+    final_metadata = df[['treeID', 'species_number', 'filename']].copy()
+
+    return final_metadata, species_number_counts
 
 def update_paths_config(path2train: pth.Path, path2test: pth.Path, path2val: pth.Path):
 
@@ -306,13 +361,29 @@ def main():
     if len(converted) == 0:
         converted = decimated
 
+    if parser.metadata_path is not None:
+        metadata_path = pth.Path(parser.metadata_path)
+    else:
+        metadata_path = pth.Path(__file__).parent.parent.parent.joinpath('data/tree_metadata_dev.csv')
+
+    if parser.species_path is None:
+        species_path = pth.Path(__file__).parent.parent.parent.joinpath('data/species.txt')
+    else:
+        species_path = pth.Path(parser.species_path)
+
+    with species_path.open('r') as f:
+        species = f.read().splitlines()
+        
+
     folder_split = {
         'train_ratio': parser.folder_split[0],
         'test_ratio': parser.folder_split[1],
         'val_ratio': parser.folder_split[2]
     }
+
     folder_split = convert_str_values(folder_split)
 
+    get_metadata(metadata_path, species)
     decimate_chunk_laz(source, decimated, folder_split)
     rebalance_dataset(decimated, folder_split)
 
