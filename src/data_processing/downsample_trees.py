@@ -241,16 +241,20 @@ def argparser():
     parser.add_argument(
         '--source_path',
         type=str,
+        default="",
         help=(
-            "Dir path with raw, labelled .LAZ files to process."
+            "Dir path with raw, labelled .LAZ files to process.\n" \
+            "If not given defaults to ./data/raw/"
         )
     )
 
     parser.add_argument(
         '--decimated_path',
         type=str,
+        default="",
         help=(
-            "Checkpoint path with cut, distributed but non-converted files."
+            "Checkpoint path with cut, distributed but non-converted files.\n" \
+            "If not given defaults to ./data/decimated/"
         )
     )
 
@@ -259,7 +263,8 @@ def argparser():
         type=str,
         default="",
         help=(
-            "Final path with files meant for further computations with model pipeline."
+            "Final path with files meant for further computations with model pipeline.\n" \
+            "If not given defaults to ./data/decimated/ and files remain saved as .npy."
         )
     )
 
@@ -352,14 +357,22 @@ def main():
     parser = argparser()
 
     source = parser.source_path
-    source = pth.Path(source)
-
+    if len(source) == 0:
+        source = pth.Path(__file__).parent.parent.parent.joinpath('data/raw')
+    else:
+        source = pth.Path(source)
+    
     decimated = parser.decimated_path
-    decimated = pth.Path(decimated)
+    if len(decimated) == 0:
+        decimated = pth.Path(__file__).parent.parent.parent.joinpath('data/decimated')
+    else:
+        decimated = pth.Path(decimated)
 
     converted = parser.converted_path
     if len(converted) == 0:
         converted = decimated
+    else:
+        converted = pth.Path(converted)
 
     if parser.metadata_path is not None:
         metadata_path = pth.Path(parser.metadata_path)
