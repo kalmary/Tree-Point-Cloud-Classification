@@ -15,7 +15,6 @@ from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import ReduceLROnPlateau, OneCycleLR
 
 
-from CONV import *
 from model import CNN2D_Residual
 from _data_loader import *
 from utils import calculate_class_weights, get_dataset_len, EarlyStopping, calculate_accuracy_weighted
