@@ -1,6 +1,7 @@
-from collections import OrderedDict
 import torch
 import torch.nn as nn
+from collections import OrderedDict
+
 
 
 class ResidualBlock2D(nn.Module):
