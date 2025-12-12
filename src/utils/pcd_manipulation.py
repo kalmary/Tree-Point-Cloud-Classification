@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+
 import fpsample
 import random
 
@@ -208,3 +209,4 @@ def voxelGridFragmentation(data,
             sampled_idx = indices[sampled_idx]  # Map back to original indices
 
         yield sampled_idx, noise
+
