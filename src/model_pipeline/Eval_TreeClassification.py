@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 
 
 from _data_loader import *
-from model import *
+from model_pipeline.model import CNN2D_Residual
 
 current_dir = pth.Path(__file__).parent.parent
 sys.path.append(str(current_dir.parent))
@@ -208,7 +208,7 @@ def main():
     config_dict = convert_str_values(config_dict)
     config_dict['device'] = device
     
-    model = YOLOClassifier(model_version=config_dict['model_config']['model_version'],
+    model = CNN2D_Residual(model_version=config_dict['model_config']['model_version'],
                             num_classes=config_dict['num_classes'],
                             in_channels=config_dict['num_channels'])
     

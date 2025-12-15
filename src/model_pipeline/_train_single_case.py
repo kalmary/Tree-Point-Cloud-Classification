@@ -19,7 +19,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau, OneCycleLR
 
 from model import CNN2D_Residual
 from _data_loader import *
-from utils import calculate_class_weights, get_dataset_len, EarlyStopping, calculate_accuracy_weighted
+from utils import calculate_class_weights, get_dataset_len, EarlyStopping, calculate_accuracy_weighted, FocalLoss_CLASS
 from utils import wrap_hist
 
 warning_to_filter = "Attempting to run cuBLAS, but there was no current CUDA context!"
@@ -160,10 +160,10 @@ def train_model(training_dict: dict) -> Union[Generator[tuple[nn.Module, dict], 
 
 
                 progressbar_t = tqdm(trainLoader, 
-                                     desc=f"Epoch training {epoch+1}/ {training_dict['epochs']}", 
-                                     total=total_t, 
-                                     position=3,
-                                     leave=False)
+                                    desc=f"Epoch training {epoch+1}/ {training_dict['epochs']}", 
+                                    total=total_t, 
+                                    position=3,
+                                    leave=False)
                 
                 for batch_x, batch_y in progressbar_t:
                     model.train(True)
@@ -217,8 +217,8 @@ def train_model(training_dict: dict) -> Union[Generator[tuple[nn.Module, dict], 
                         loss_v = criterion_v(outputs, batch_y)
 
                         accuracy_v = calculate_accuracy_weighted(outputs, 
-                                                                 batch_y, 
-                                                                 num_classes=training_dict['num_classes']) ##TODO Changed 
+                                                                batch_y, 
+                                                                num_classes=training_dict['num_classes']) ##TODO Changed 
 
                         epoch_loss_v += loss_v.item() * batch_y.size(0)
                         epoch_accuracy_v += accuracy_v * batch_y.size(0)
