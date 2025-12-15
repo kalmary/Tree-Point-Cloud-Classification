@@ -1,3 +1,5 @@
+import torch
+import torch.nn as nn
 import os
 import sys
 import warnings
@@ -19,6 +21,7 @@ from model import CNN2D_Residual
 from _data_loader import *
 from utils import calculate_class_weights, get_dataset_len, EarlyStopping, calculate_accuracy_weighted
 from utils import wrap_hist
+
 warning_to_filter = "Attempting to run cuBLAS, but there was no current CUDA context!"
 
 # Adding a filter to ignore warnings from PyTorch
