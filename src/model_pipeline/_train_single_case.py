@@ -12,14 +12,13 @@ import torch
 import torch.optim as optim
 import torch.multiprocessing as mp
 from torchinfo import summary
-from torch.nn import CrossEntropyLoss
 from torch.utils.data import DataLoader
-from torch.optim.lr_scheduler import ReduceLROnPlateau, OneCycleLR
+from torch.optim.lr_scheduler import OneCycleLR
 
 
 from model import CNN2D_Residual
 from _data_loader import *
-from utils import calculate_class_weights, get_dataset_len, EarlyStopping, calculate_accuracy_weighted, FocalLoss_CLASS
+from utils import calculate_class_weights, get_dataset_len, calculate_weighted_accuracy, FocalLoss
 from utils import wrap_hist
 
 warning_to_filter = "Attempting to run cuBLAS, but there was no current CUDA context!"
@@ -108,8 +107,8 @@ def train_model(training_dict: dict) -> Union[Generator[tuple[nn.Module, dict], 
         print(f"Error initializing model: {e}")
         yield None, {}
 
-    criterion_t = FocalLoss_CLASS(alpha= weights_t, gamma=training_dict['focal_loss_gamma']).cpu()  ##TODO Changed  
-    criterion_v = FocalLoss_CLASS(alpha= weights_v, gamma=training_dict['focal_loss_gamma']).cpu()
+    criterion_t = FocalLoss(alpha= weights_t, gamma=training_dict['focal_loss_gamma']).cpu()  ##TODO Changed  
+    criterion_v = FocalLoss(alpha= weights_v, gamma=training_dict['focal_loss_gamma']).cpu()
 
     optimizer = optim.Adam(model.parameters(), lr = training_dict['learning_rate'])
 
@@ -123,8 +122,6 @@ def train_model(training_dict: dict) -> Union[Generator[tuple[nn.Module, dict], 
         final_div_factor=training_dict['final_div_factor'],  # Final LR
         cycle_momentum=True  # Cycle momentum as well
     )
-
-    early_stopping = EarlyStopping(patience=40, delta=0.0001, verbose=False)
 
     loss_hist = []
     acc_hist = []
@@ -184,7 +181,7 @@ def train_model(training_dict: dict) -> Union[Generator[tuple[nn.Module, dict], 
                     except Exception:
                         pass
 
-                    accuracy_t = calculate_accuracy_weighted(outputs, batch_y, num_classes=training_dict['num_classes'])
+                    accuracy_t = calculate_weighted_accuracy(outputs, batch_y, weights=weights_t)
                     current_lr = optimizer.param_groups[0]['lr']
 
                     epoch_loss_t += loss_t.item() * batch_y.size(0)
@@ -216,9 +213,9 @@ def train_model(training_dict: dict) -> Union[Generator[tuple[nn.Module, dict], 
 
                         loss_v = criterion_v(outputs, batch_y)
 
-                        accuracy_v = calculate_accuracy_weighted(outputs, 
+                        accuracy_v = calculate_weighted_accuracy(outputs, 
                                                                 batch_y, 
-                                                                num_classes=training_dict['num_classes']) ##TODO Changed 
+                                                                weights=weights_v) ##TODO Changed 
 
                         epoch_loss_v += loss_v.item() * batch_y.size(0)
                         epoch_accuracy_v += accuracy_v * batch_y.size(0)
@@ -249,9 +246,6 @@ def train_model(training_dict: dict) -> Union[Generator[tuple[nn.Module, dict], 
                     "Acc_val": f"{avg_accuracy_v:.6f}",
                     "learning_rate_max": f"{training_dict['learning_rate']:.10f}"
                 })
-
-                if early_stopping.stop_training:
-                    break
 
     except Exception as e:
         print(f"Error during training: {e}")
