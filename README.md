@@ -11,13 +11,13 @@
 --- 
 # 1. Overview <a name="overview"></a>
 
-Tree Point Cloud Classification is a comprehensive toolkit for semantic segmentation of large-scale point clouds using the RandLA-Net deep learning architecture. RandLA-Net is specifically designed to process massive point cloud datasets efficiently through its random sampling strategy and local feature aggregation mechanism. 
+Tree Point Cloud Classification is a comprehensive toolkit for semantic segmentation of large-scale point clouds using the ResNet deep learning architecture. 
 
 Key Features:
-- Data preprocessing: cut, decimate and distribite data for training model,
-- Model definition: necessary code to define and build the RandLANet model architecture, allows for scalability and adjustment for hardware-specific needs,
-- Training & Evaluation: Tools for training the model on custom datasets and evaluating its performance,
-- Inference & Segmentation: Utility to perform semantic segmentation on new point cloud files using pre-trained models/ segmentation on preloaded arrays.
+- Data preprocessing: 
+- Model definition: 
+- Training & Evaluation: 
+- Inference & Segmentation: 
 
 ---
 # 2. Repository structure: <a name="fstructure"></a>
@@ -159,3 +159,4 @@ Once models are trained, the best models and configs are choosen, copy the files
 ### **License**
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
