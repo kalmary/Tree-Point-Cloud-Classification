@@ -11,7 +11,6 @@ matplotlib.use('Agg')
 import torch
 import torch.optim as optim
 import torch.multiprocessing as mp
-from torchinfo import summary
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import OneCycleLR
 
@@ -250,8 +249,3 @@ def train_model(training_dict: dict) -> Union[Generator[tuple[nn.Module, dict], 
     except Exception as e:
         print(f"Error during training: {e}")
         yield None, {}
-
-if __name__ == '__main__':
-
-    mp.set_start_method('spawn')  # Set the start method to 'spawn'
-    main()
