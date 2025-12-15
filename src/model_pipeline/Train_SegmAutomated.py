@@ -37,7 +37,7 @@ def check_models(model_configs_paths: list[pth.Path],
                  max_memory_GB = 20,
                  verbose: bool = False) -> tuple[list[dict], list[pth.Path]]:
     """
-    Check if models defined in NeuralNet/Architectures/models_1D/model_configs compile.
+    Check if models defined in Tree-Point-Cloud-Classification/src/model_configs compile.
     Print models not compiling.
     Return list of model configs that compile.
     """
@@ -121,7 +121,7 @@ def generate_experiment_configs(training_config: dict,
         if "comment" in key.lower():
             continue
         
-        elif isinstance(value, list) and len(value) > 1 and not 'samples_len' in key.lower():
+        elif isinstance(value, list) and len(value) > 1 and not 'samples_len' in key.lower():  ##TODO
             if "learning_rate" in key.lower() or "weight_decay" in key.lower():
                 dynamic_params[key] = get_factor_list(training_config[key])
             else:
@@ -158,7 +158,7 @@ def generate_experiment_configs(training_config: dict,
             exp_config = static_params.copy()
             exp_config.update(dynamic_config)
             exp_config['model_config'] = model_config
-            exp_config['model_config']['num_classes'] = exp_config['num_classes']
+            #exp_config['model_config']['num_classes'] = exp_config['num_classes'] ##TODO 
             
             exp_configs.append(exp_config)
         
@@ -386,9 +386,11 @@ def case_based_training(exp_configs: list[dict],
 
             model, best_config, config_path, result_hist = checkpoint.check_checkpoint(model, model_name, final_val, exp_config, result_hist)
     
-    logger.info(f'Best model saved to: {model_path}')
-    logger.info(f'Best config saved to: {config_path}')
-    logger.info('STOP: case_based_training')
+    pprint(20*'=')
+    print(f"Best model saved to: {model_path}")
+    print(f"Best config saved to: {config_path}") 
+    pprint(f'Best training config:\n{best_config}\n')
+    pprint(20*'=')
 
     summary(model)
 
@@ -556,10 +558,11 @@ def optuna_based_training(exp_config: list[dict], # only one, non converted conf
                                                     model_name = model_name,
                                                     model_configs_list=model_configs,
                                                     checkpoint=checkpoint),
-                   n_trials=n_trials,
-                   callbacks=[callback])
+                                                    n_trials=n_trials,
+                                                    callbacks=[callback])
     
     pbar.close()
+    
     best_trial = study.best_trial
     best_params = best_trial.params
     best_value = best_trial.value
