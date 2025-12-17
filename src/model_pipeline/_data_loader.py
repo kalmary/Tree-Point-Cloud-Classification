@@ -13,7 +13,7 @@ neural_net_dir = os.path.dirname(pth.Path(__file__).parent)
 sys.path.append(neural_net_dir)
 
 
-from utils.pcd_manipulation import rotate_points, tilt_points, transform_points
+from utils.pcd_manipulation import rotate_points, tilt_points, transform_points, add_gaussian_noise
 from utils.data_augmentation import cloud2sideViews_torch, gaussian_blur
 
 
@@ -114,15 +114,21 @@ class Dataset(IterableDataset):
 
             cloud_tensor = cloud_tensor.to(self.device)
             if self.shuffle:
+                cloud_tensor = add_gaussian_noise(cloud_tensor, std=0.05)
                 cloud_tensor = transform_points(cloud_tensor, device=self.device)
                 cloud_tensor = rotate_points(cloud_tensor, device=self.device)
                 cloud_tensor = tilt_points(cloud_tensor, device=self.device)
 
             cloud_tensor = cloud2sideViews_torch(points=cloud_tensor, resolution_xy=self.resolution_xy)
+
             if self.shuffle:
-                cloud_tensor = gaussian_blur(cloud_tensor, kernel_size=(5, 5), sigma=(1., 1.5))
+                kernel_size = random.randint(3, 7)
+                sigma = random.uniform(0.5, 1.5)
             else:
-                cloud_tensor = gaussian_blur(cloud_tensor, kernel_size=(5, 5), sigma=1.)
+                kernel_size = 5
+                sigma = 0.7
+
+            cloud_tensor = gaussian_blur(cloud_tensor, kernel_size=(kernel_size, kernel_size), sigma=sigma)
 
             cloud_tensor = cloud_tensor.cpu()
 

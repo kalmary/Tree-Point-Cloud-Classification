@@ -1,8 +1,12 @@
 import numpy as np
 import torch
-
 import fpsample
 import random
+
+def add_gaussian_noise(cloud: torch.Tensor, std: float=0.01):
+    noise = torch.randn_like(cloud) * std
+    noise = noise.to(cloud.device)
+    return cloud + noise
 
 def rotate_points(points: torch.Tensor, device = torch.device('cpu')) -> torch.Tensor:
 
@@ -209,4 +213,3 @@ def voxelGridFragmentation(data,
             sampled_idx = indices[sampled_idx]  # Map back to original indices
 
         yield sampled_idx, noise
-
