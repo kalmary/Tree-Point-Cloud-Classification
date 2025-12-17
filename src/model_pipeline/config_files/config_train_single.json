@@ -2,15 +2,19 @@
     "train_repeat": 3,
     "train_repeat_comment": "How many times training is done for the same config, to get average/ best results",
 
-    "data_path_train": "/home/michal-siniarski/Dokumenty/Z32/BSP/sounds/czernica_09.25/distributed_small/train",
-    "data_path_test": "/home/michal-siniarski/Dokumenty/Z32/BSP/sounds/czernica_09.25/distributed_small/test",
-    "data_path_val": "/home/michal-siniarski/Dokumenty/Z32/BSP/sounds/czernica_09.25/distributed_small/val",
+    "data_path_train": "/home/michal-siniarski/Dokumenty/Z32/LAS/TREE_PROCESSED/npy_distributed/train",
+    "data_path_test": "/home/michal-siniarski/Dokumenty/Z32/LAS/TREE_PROCESSED/npy_distributed/test",
+    "data_path_val": "/home/michal-siniarski/Dokumenty/Z32/LAS/TREE_PROCESSED/npy_distributed/val",
 
     "num_classes": 19,
     "batch_size": 20,
     "epochs": 100,
+
+
     
     "learning_rate": 0.001,
+    "weight_decay": 0.01,
+    "focal_loss_gamma": [2.0],
 
     "input_dim": 350,
 

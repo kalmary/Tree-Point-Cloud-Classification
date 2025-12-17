@@ -90,7 +90,7 @@ class ResBottleneckBlock2D(nn.Module):
 
 
 class CNN2D_Residual(nn.Module):
-    def __init__(self, num_classes, config_data):
+    def __init__(self, config_data, num_classes):
         super(CNN2D_Residual, self).__init__()
 
         dropout = config_data['global_params']['dropout']

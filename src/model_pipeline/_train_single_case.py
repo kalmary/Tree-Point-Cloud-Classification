@@ -69,7 +69,7 @@ def train_model(training_dict: dict) -> Union[Generator[tuple[nn.Module, dict], 
     
     total_t = get_dataset_len(trainLoader)
     total_v = get_dataset_len(valLoader)
-# START
+
     weights_t = calculate_class_weights(trainLoader,
                                         training_dict['num_classes'],
                                         total = total_t,
@@ -101,7 +101,7 @@ def train_model(training_dict: dict) -> Union[Generator[tuple[nn.Module, dict], 
                                     verbose=False)
 #STOP
     try:
-        model = CNN2D_Residual(training_dict['num_classes'], config_data=training_dict['model_config']).to(training_dict['device'])
+        model = CNN2D_Residual(config_data=training_dict['model_config'], num_classes=training_dict['num_classes']).to(training_dict['device'])
     except Exception as e:
         print(f"Error initializing model: {e}")
         yield None, {}
@@ -180,24 +180,24 @@ def train_model(training_dict: dict) -> Union[Generator[tuple[nn.Module, dict], 
                     except Exception:
                         pass
 
-                    accuracy_t = calculate_weighted_accuracy(outputs, batch_y, weights=weights_t)
+                    # accuracy_t = calculate_weighted_accuracy(outputs, batch_y, weights=weights_t)
                     current_lr = optimizer.param_groups[0]['lr']
 
                     epoch_loss_t += loss_t.item() * batch_y.size(0)
-                    epoch_accuracy_t += accuracy_t * batch_y.size(0)
+                    # epoch_accuracy_t += accuracy_t * batch_y.size(0)
                     epoch_samples_t += batch_y.size(0)
 
                     avg_loss_t = epoch_loss_t / epoch_samples_t
-                    avg_accuracy_t = epoch_accuracy_t / epoch_samples_t
+                    # avg_accuracy_t = epoch_accuracy_t / epoch_samples_t
 
                     progressbar_t.set_postfix({
                         "Loss_train": f"{avg_loss_t:.6f}",
-                        "Acc_train": f"{avg_accuracy_t:.6f}",
+                        # "Acc_train": f"{avg_accuracy_t:.6f}",
                         "learning_rate": f"{current_lr:.10f}"
                     })
 
                 loss_hist.append(avg_loss_t)
-                acc_hist.append(avg_accuracy_t)
+                acc_hist.append(-1.)
 
                 progressbar_v = tqdm(valLoader, desc=f"Epoch validation {epoch + 1}/ {training_dict['epochs']}", total=total_v, position=3, leave=False)
                 with torch.no_grad():
@@ -240,7 +240,7 @@ def train_model(training_dict: dict) -> Union[Generator[tuple[nn.Module, dict], 
                 epoch_pbar.set_postfix({
                     "Epoch": epoch + 1,
                     "Loss_train": f"{avg_loss_t:.6f}",
-                    "Acc_train": f"{avg_accuracy_t:.6f}",
+                    # "Acc_train": f"{avg_accuracy_t:.6f}",
                     "Loss_val": f"{avg_loss_v:.6f}",
                     "Acc_val": f"{avg_accuracy_v:.6f}",
                     "learning_rate_max": f"{training_dict['learning_rate']:.10f}"

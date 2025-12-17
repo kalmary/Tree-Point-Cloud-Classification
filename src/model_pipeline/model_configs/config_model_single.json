@@ -1,4 +1,5 @@
 {
+    "in_channels": 5,
     "initial_conv": {
         "out_channels": 64,
         "kernel_size": 7,
