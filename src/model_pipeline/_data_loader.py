@@ -23,9 +23,11 @@ class Dataset(IterableDataset):
     def __init__(self,
                  path_dir: Union[str, pth.Path],
                  resolution_xy: int,
+                 num_classes: int,
                  batch_size: int,
                  weights: torch.Tensor = None,
                  shuffle: bool = True,
+                 training: bool = True,
                  buffer: int = 250,
                  device: Optional[torch.device] = torch.device('cpu')):
 
@@ -33,8 +35,10 @@ class Dataset(IterableDataset):
 
         self.path = pth.Path(path_dir)
         self.resolution_xy = resolution_xy
+        self.num_classes = num_classes
         self.batch_size = batch_size
         self.shuffle = shuffle
+        self.training = training
         self.device = device
 
 
@@ -43,7 +47,7 @@ class Dataset(IterableDataset):
         if weights is not None:
             weights = weights.cpu().numpy()
             self.weights = (1 - (weights / weights.max()))*10.
-            self.weights = self.weights.astype(np.int32)
+            self.weights = self.weights.astype(np.int32) - 3
 
             self.weights = self.weights.clip(min=0)
 
@@ -75,7 +79,16 @@ class Dataset(IterableDataset):
         for path in iter_paths:
 
             label = int(path.stem.rsplit('_', 1)[-1])
-            
+                        
+            if self.training: # TODO change this logic after next data processing
+                if label == 0:
+                    continue
+                label -= 1
+            else:
+                if label == 0:
+                    label = self.num_classes
+                else:
+                    label -= 1
 
             if self.shuffle is not None and self.weights is not None:
                 for _ in range(self.weights_dict[label]):

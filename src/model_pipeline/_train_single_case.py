@@ -47,24 +47,26 @@ def train_model(training_dict: dict) -> Union[Generator[tuple[nn.Module, dict], 
 
     train_dataset = Dataset(path_dir = training_dict['data_path_train'],
                                  resolution_xy = training_dict['input_dim'],
+                                 num_classes=training_dict['num_classes'],
                                  batch_size = training_dict['batch_size'],
                                  shuffle = True,
                                  device = device_loader)
     
     val_dataset = Dataset(path_dir = training_dict['data_path_val'],
                                resolution_xy=training_dict['input_dim'],
+                               num_classes=training_dict['num_classes'],
                                batch_size = training_dict['batch_size'],
                                shuffle = False,
                                device = device_loader)
     
     trainLoader = DataLoader(train_dataset,
                              batch_size=None,
-                             num_workers = 15,
+                             num_workers = 10,
                              pin_memory=True)
     
     valLoader = DataLoader(val_dataset,
                            batch_size=None,
-                           num_workers = 15,
+                           num_workers = 10,
                            pin_memory=True)
     
     total_t = get_dataset_len(trainLoader)
@@ -82,6 +84,7 @@ def train_model(training_dict: dict) -> Union[Generator[tuple[nn.Module, dict], 
                                         verbose=False)
     train_dataset = Dataset(path_dir = training_dict['data_path_train'],
                                 resolution_xy = training_dict['input_dim'],
+                                num_classes=training_dict['num_classes'],
                                 batch_size = training_dict['batch_size'],
                                 shuffle = True,
                                 weights=weights_t,
@@ -89,7 +92,7 @@ def train_model(training_dict: dict) -> Union[Generator[tuple[nn.Module, dict], 
     
     trainLoader = DataLoader(train_dataset,
                              batch_size=None,
-                             num_workers = 15,          
+                             num_workers = 10,          
                              pin_memory=True)
     
     total_t = get_dataset_len(trainLoader)
