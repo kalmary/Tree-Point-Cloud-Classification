@@ -11,7 +11,7 @@
 --- 
 # 1. Overview <a name="overview"></a>
 
-**TREE-POINT-CLOUD-CLASSIFICATION** is a set of tools for tree species classification from point clouds using a 2D Residual CNN architecture. The framework projects 3D point cloud data into multi-channel 2D representations and processes them through a dynamically configurable ResNet. 
+**TREE-POINT-CLOUD-CLASSIFICATION** is a specialized framework for tree species classification that bridges 3D point cloud processing with 2D deep learning. By projecting complex 3D point cloud data into multi-channel 2D representations, the system leverages a dynamically configurable Residual CNN (ResNet) architecture for high-accuracy feature extraction.
 
 Key Features:
 
@@ -146,6 +146,7 @@ As previously, you can run this script with ``--help`` flag.
 ## **License**
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
 
 
 
