@@ -74,13 +74,13 @@ def train_model(training_dict: dict, num_workers = 16) -> Union[Generator[tuple[
 
     weights_t = calculate_class_weights(trainLoader,
                                         training_dict['num_classes'],
-                                        total = total_t,
+                                        power=0.5,
                                         device=device_loader,
                                         verbose=False)
 
     weights_v = calculate_class_weights(valLoader,
                                         training_dict['num_classes'],
-                                        total = total_v,
+                                        power=0.5,
                                         device=device_loader, ##TODO Changed
                                         verbose=False)
     

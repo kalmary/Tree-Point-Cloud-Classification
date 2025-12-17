@@ -45,10 +45,9 @@ class Dataset(IterableDataset):
         self.buffer_size = buffer
         self.weights = None
         if weights is not None:
-            weights = weights.cpu().numpy()
-            self.weights = self.weights.astype(np.int32)*10
-
-            self.weights = self.weights.clip(min=0)
+            self.weights = weights.cpu().numpy()
+            self.weights = self.weights*10
+            self.weights = self.weights.astype(np.int32).clip(min=1)
 
             self.weights_dict = OrderedDict()
             for i, weight in enumerate(self.weights):
@@ -88,12 +87,17 @@ class Dataset(IterableDataset):
                     label = self.num_classes
                 else:
                     label -= 1
-
             if self.shuffle is not None and self.weights is not None:
                 for _ in range(self.weights_dict[label]):
                     worker_buffer.append((path, label))
 
                     if len(worker_buffer) >= self.buffer_size:
+                        random.shuffle(worker_buffer)
+                        for item in worker_buffer:
+                            yield item
+                            worker_buffer.pop(worker_buffer.index(item))
+
+                    if len(worker_buffer) > 0:
                         random.shuffle(worker_buffer)
                         for item in worker_buffer:
                             yield item
