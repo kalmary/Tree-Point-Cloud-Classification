@@ -1,28 +1,22 @@
 import pathlib as pth
 import numpy as np
+
 import random
-import h5py
-from typing import Optional, Union, OrderedDict
+from typing import Union, OrderedDict, Optional
 
 import torch
 from torch.utils.data import IterableDataset, get_worker_info
 
-import fpsample
-import random
-
-import sys
 import os
-
-src_dir = pth.Path(__file__).parent.parent
-sys.path.append(str(src_dir))
-
-from utils import rotate_points, tilt_points, transform_points
-from utils import cloud2sideViews_torch, gaussian_blur
+import sys
+neural_net_dir = os.path.dirname(pth.Path(__file__).parent)
+sys.path.append(neural_net_dir)
 
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-sys.path.append(parent_dir)
+from utils.pcd_manipulation import rotate_points, tilt_points, transform_points
+from utils.data_augmentation import cloud2sideViews_torch, gaussian_blur
+
+
 
 class Dataset(IterableDataset):
 
@@ -30,10 +24,10 @@ class Dataset(IterableDataset):
                  path_dir: Union[str, pth.Path],
                  resolution_xy: int,
                  batch_size: int,
+                 weights: torch.Tensor = None,
                  shuffle: bool = True,
-                 weights: Optional[torch.Tensor] = None,
-                 buffer: int = 200,
-                 device: torch.device = None):
+                 buffer: int = 250,
+                 device: Optional[torch.device] = torch.device('cpu')):
 
         super(Dataset).__init__()
 
@@ -41,16 +35,22 @@ class Dataset(IterableDataset):
         self.resolution_xy = resolution_xy
         self.batch_size = batch_size
         self.shuffle = shuffle
-        self.weights = weights
         self.device = device
-        
 
-        self.oversample = None
-        self.buffer = buffer
-        if self.weights is not None:
-            self.weights/= self.weights.max()
-            self.oversample = (1 - self.weights)*10
-            self.oversample = self.oversample.floor().long()
+
+        self.buffer_size = buffer
+        self.weights = None
+        if weights is not None:
+            weights = weights.cpu().numpy()
+            self.weights = (1 - (weights / weights.max()))*10.
+            self.weights = self.weights.astype(np.int32)
+
+            self.weights = self.weights.clip(min=0)
+
+            self.weights_dict = OrderedDict()
+            for i, weight in enumerate(self.weights):
+                self.weights_dict[i] = weight.item()
+            
 
 
     def _key_streamer(self):
@@ -58,6 +58,7 @@ class Dataset(IterableDataset):
         Generator over all keys. Each worker processes all keys,
         but only its assigned chunks within each key.
         """
+
         path_list = list(self.path.rglob('*.npy'))
         if self.shuffle:
             random.shuffle(path_list)
@@ -70,26 +71,34 @@ class Dataset(IterableDataset):
             worker_id = worker_info.id
             iter_paths = path_list[worker_id::total_workers]
 
+        worker_buffer = []
         for path in iter_paths:
 
-            file_name = path.stem
-            label = file_name.rsplit('_', 1)[-1]
-            label = int(label)
+            label = int(path.stem.rsplit('_', 1)[-1])
+            
 
-            points = np.load(path)
-            # points = torch.from_numpy(points)
-            points = torch.from_numpy(points[:, :3]).float()
-            label = torch.asarray(label)
+            if self.shuffle is not None and self.weights is not None:
+                for _ in range(self.weights_dict[label]):
+                    worker_buffer.append((path, label))
 
-
-
-
-            yield  (points, label)
+                    if len(worker_buffer) >= self.buffer_size:
+                        random.shuffle(worker_buffer)
+                        for item in worker_buffer:
+                            yield item
+                            worker_buffer.pop(worker_buffer.index(item))
+            else:
+                yield (path, label)
 
 
     def _process_cloud(self):
         stream = self._key_streamer()
-        for (cloud_tensor, label) in stream:
+        for (path, label) in stream:
+            
+            points = np.load(path)
+            label = torch.asarray(label).long()
+
+            cloud_tensor = torch.from_numpy(points[:, :3]).float()
+
             cloud_tensor = cloud_tensor.to(self.device)
             if self.shuffle:
                 cloud_tensor = transform_points(cloud_tensor, device=self.device)
@@ -98,14 +107,9 @@ class Dataset(IterableDataset):
 
             cloud_tensor = cloud2sideViews_torch(points=cloud_tensor, resolution_xy=self.resolution_xy)
             if self.shuffle:
-                kernel = random.choice([3, 5, 7, 9])
-                sigma = random.uniform(1., 3.)
+                cloud_tensor = gaussian_blur(cloud_tensor, kernel_size=(5, 5), sigma=(1., 1.5))
             else:
-                kernel = 5
-                sigma = 1.5
-                
-            cloud_tensor = gaussian_blur(cloud_tensor, kernel_size=(kernel, kernel), sigma=sigma, device=self.device)
-
+                cloud_tensor = gaussian_blur(cloud_tensor, kernel_size=(5, 5), sigma=1.)
 
             cloud_tensor = cloud_tensor.cpu()
 
@@ -118,13 +122,17 @@ class Dataset(IterableDataset):
         label_batch = []
 
         for (cloud, label) in stream:
-            # print('SAMPLE', cloud.shape)
+
             cloud_batch.append(cloud.unsqueeze(0))
             label_batch.append(label)
 
             if len(label_batch) >= self.batch_size:
+
+
+
                 cloud_batch = torch.vstack(cloud_batch).float()
                 label_batch = torch.asarray(label_batch).long()
+
                 # print('BATCH', cloud_batch.shape)
                 yield cloud_batch, label_batch
 
@@ -136,4 +144,3 @@ class Dataset(IterableDataset):
             label_batch = torch.asarray(label_batch).long()
 
             yield cloud_batch, label_batch
-

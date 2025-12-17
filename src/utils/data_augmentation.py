@@ -15,7 +15,7 @@ def gaussian_blur(img: Union[torch.Tensor, np.ndarray], kernel_size=(5, 5), sigm
     # Apply the Gaussian kernel to the image
     blurred_img = gaussian_kernel(img)
 
-    return blurred_img
+    return blurred_img.to(img.device)
 
 def cloud2sideViews_torch(points: torch.Tensor, resolution_xy: int, margin_ratio: float = 0.05) -> torch.Tensor:
     points = points.type(torch.float32)
