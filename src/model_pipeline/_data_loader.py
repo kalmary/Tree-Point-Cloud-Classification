@@ -125,11 +125,11 @@ class Dataset(IterableDataset):
             cloud_tensor = cloud2sideViews_torch(points=cloud_tensor, resolution_xy=self.resolution_xy)
 
             if self.shuffle:
-                kernel_size = random.choice([3, 5, 7])
+                kernel_size = random.choice([3, 5])
                 sigma = random.uniform(0.5, 1.5)
             else:
-                kernel_size = 5
-                sigma = 0.7
+                kernel_size = 3
+                sigma = 0.6
 
             cloud_tensor = gaussian_blur(cloud_tensor, kernel_size=(kernel_size, kernel_size), sigma=sigma)
 
