@@ -46,8 +46,7 @@ class Dataset(IterableDataset):
         self.weights = None
         if weights is not None:
             weights = weights.cpu().numpy()
-            self.weights = (1 - (weights / weights.max()))*10.
-            self.weights = self.weights.astype(np.int32) - 3
+            self.weights = self.weights.astype(np.int32)*10
 
             self.weights = self.weights.clip(min=0)
 
@@ -122,7 +121,7 @@ class Dataset(IterableDataset):
             cloud_tensor = cloud2sideViews_torch(points=cloud_tensor, resolution_xy=self.resolution_xy)
 
             if self.shuffle:
-                kernel_size = random.randint(3, 7)
+                kernel_size = random.choice([3, 5, 7])
                 sigma = random.uniform(0.5, 1.5)
             else:
                 kernel_size = 5

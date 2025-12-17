@@ -319,25 +319,22 @@ class Checkpoint:
         save2json(best_config, config_path)
         logger.info(f'New config for model {model_name} saved to: {config_path}')
 
+        plotter_obj = Plotter(best_config['num_classes'], plots_dir = plot_dir)
+        # iterate over every metric to plot it
+        # group into one plot metric and metric val
+        for metric_name, metric_values in result_hist.items():
+            if 'val' in metric_name:
+                continue
 
+            val_metric = None
+            if metric_name + '_val' in result_hist.keys():
+                val_metric = result_hist[metric_name + '_val']
 
-        if len(result_hist['acc_hist']) > 1:
-            plotter_obj = Plotter(best_config['num_classes'], plots_dir = plot_dir)
+            plotter_obj.plot_metric_hist(f'{metric_name}_{model_name}.png',
+                                         metric_values,
+                                         val_metric=val_metric)
 
-
-            plotter_obj.plot_metric_hist(f'Loss_{model_name}.png',
-                                         result_hist['loss_hist'],
-                                         result_hist['loss_v_hist'])
-
-            plotter_obj.plot_metric_hist(f'Accuracy_{model_name}.png', 
-                                    result_hist['acc_hist'],
-                                    result_hist['acc_v_hist'])
-            
-            plotter_obj.plot_metric_hist(f'mIoU_{model_name}.png', 
-                                    result_hist['miou_hist'],
-                                    result_hist['miou_v_hist'])
-
-            logger.info(f'Metrics history plots for {model_name} saved to: {plot_dir}')
+            logger.info(f'Metric {metric_name} plot for {model_name} saved to: {plot_dir}')
 
 
         self.save_new = False

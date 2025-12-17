@@ -35,7 +35,7 @@ sys.path.append(nerual_net_dir)
 
 
 
-def train_model(training_dict: dict) -> Union[Generator[tuple[nn.Module, dict], None, None],
+def train_model(training_dict: dict, num_workers = 16) -> Union[Generator[tuple[nn.Module, dict], None, None],
                                                 Generator[tuple[None, dict], None, None]]:      
     
     device_gpu = torch.device('cuda')
@@ -61,12 +61,12 @@ def train_model(training_dict: dict) -> Union[Generator[tuple[nn.Module, dict], 
     
     trainLoader = DataLoader(train_dataset,
                              batch_size=None,
-                             num_workers = 10,
+                             num_workers = num_workers,
                              pin_memory=True)
     
     valLoader = DataLoader(val_dataset,
                            batch_size=None,
-                           num_workers = 10,
+                           num_workers = num_workers,
                            pin_memory=True)
     
     total_t = get_dataset_len(trainLoader)
@@ -77,11 +77,13 @@ def train_model(training_dict: dict) -> Union[Generator[tuple[nn.Module, dict], 
                                         total = total_t,
                                         device=device_loader,
                                         verbose=False)
+
     weights_v = calculate_class_weights(valLoader,
                                         training_dict['num_classes'],
                                         total = total_v,
                                         device=device_loader, ##TODO Changed
                                         verbose=False)
+    
     train_dataset = Dataset(path_dir = training_dict['data_path_train'],
                                 resolution_xy = training_dict['input_dim'],
                                 num_classes=training_dict['num_classes'],
@@ -92,17 +94,12 @@ def train_model(training_dict: dict) -> Union[Generator[tuple[nn.Module, dict], 
     
     trainLoader = DataLoader(train_dataset,
                              batch_size=None,
-                             num_workers = 10,          
+                             num_workers = num_workers,          
                              pin_memory=True)
     
     total_t = get_dataset_len(trainLoader)
 
-    # weights_t = calculate_class_weights(trainLoader,
-    #                                 training_dict['num_classes'],
-    #                                 total = total_t,
-    #                                 device=device_loader,
-    #                                 verbose=False)
-#STOP
+
     try:
         model = CNN2D_Residual(config_data=training_dict['model_config'], num_classes=training_dict['num_classes']).to(training_dict['device'])
     except Exception as e:
@@ -203,9 +200,10 @@ def train_model(training_dict: dict) -> Union[Generator[tuple[nn.Module, dict], 
             acc_hist.append(-1.)
 
             progressbar_v = tqdm(valLoader, desc=f"Epoch validation {epoch + 1}/ {training_dict['epochs']}", total=total_v, position=3, leave=False)
+            model.eval()
             with torch.no_grad():
                 for batch_x, batch_y in progressbar_v:
-                    model.eval()
+                    
                     batch_x = batch_x.to(training_dict['device'])
                     outputs = model(batch_x)
 
