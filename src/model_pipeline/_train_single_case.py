@@ -232,7 +232,7 @@ def train_model(training_dict: dict) -> Union[Generator[tuple[nn.Module, dict], 
             acc_v_hist.append(avg_accuracy_v)
 
 
-            hist_dict = wrap_hist(acc_hist, loss_hist, acc_v_hist, loss_v_hist)
+            hist_dict = wrap_hist(acc_hist = acc_hist, loss_hist = loss_hist, acc_hist_val = acc_v_hist, loss_hist_val = loss_v_hist)
 
             yield model, hist_dict
 

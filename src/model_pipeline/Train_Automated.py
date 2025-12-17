@@ -466,17 +466,15 @@ def objective_function(trial: optuna.Trial,
             
 
         # goal is to maximize val_acc + 1/val_loss
-        final_val_accuracy = result_hist['acc_v_hist'][-1]
-        final_val_loss = result_hist['loss_v_hist'][-1]
-        final_val_miou = result_hist['miou_v_hist'][-1]
+        final_val_accuracy = result_hist['acc_hist_val'][-1]
+        final_val_loss = result_hist['loss_hist_val'][-1]
 
         best_val_accuracy = max(best_val_accuracy, final_val_accuracy)
-        best_val_miou = max(best_val_miou, final_val_miou)
         best_val_loss = min(best_val_loss, final_val_loss)
 
 
         normalized_loss = 1 / (1 + best_val_loss)
-        final_val = 0.4 * best_val_accuracy + 0.2 * normalized_loss + 0.4 * best_val_miou # TODO tuning might be necessary
+        final_val = 0.6 * best_val_accuracy + 0.4 * normalized_loss# TODO tuning might be necessary
 
         checkpoint.check_checkpoint(model,
                                     model_name,
@@ -484,7 +482,7 @@ def objective_function(trial: optuna.Trial,
                                     exp_config,
                                     result_hist)
 
-        logger.info(f'Epoch {epoch_idx+1}/{exp_config["epochs"]}: best_val_acc: {best_val_accuracy:.3f}, best_val_loss: {best_val_loss:.3f}, best_val_miou: {best_val_miou:.3f}, final_val: {final_val:.3f}')
+        logger.info(f'Epoch {epoch_idx+1}/{exp_config["epochs"]}: best_val_acc: {best_val_accuracy:.3f}, best_val_loss: {best_val_loss:.3f}, final_val: {final_val:.3f}')
 
         # report acutal results for prunning
         trial.report(final_val, step=epoch_idx)
