@@ -97,11 +97,11 @@ def train_model(training_dict: dict) -> Union[Generator[tuple[nn.Module, dict], 
     
     total_t = get_dataset_len(trainLoader)
 
-    weights_t = calculate_class_weights(trainLoader,
-                                    training_dict['num_classes'],
-                                    total = total_t,
-                                    device=device_loader,
-                                    verbose=False)
+    # weights_t = calculate_class_weights(trainLoader,
+    #                                 training_dict['num_classes'],
+    #                                 total = total_t,
+    #                                 device=device_loader,
+    #                                 verbose=False)
 #STOP
     try:
         model = CNN2D_Residual(config_data=training_dict['model_config'], num_classes=training_dict['num_classes']).to(training_dict['device'])

@@ -3,9 +3,9 @@
 
     "initial_conv": {
         "out_channels": 64,
-        "kernel_size": 7,
+        "kernel_size": 5,
         "stride": 2,
-        "padding": 3
+        "padding": 2
     },
     "residual_blocks_config": [
         {"in_channels": 64, "out_channels": 64, "kernel_size": 3, "stride": 1, "expansion": 4},
