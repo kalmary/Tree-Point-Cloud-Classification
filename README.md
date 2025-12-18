@@ -91,7 +91,7 @@ For more guidance/ guidance when running code, run it with ``--help`` flag.
 ### 2. Training <a name="training"></a>
 Examine contents of:
 - ``src/model_pipeline/model_configs`` - .json files with model architectures,
-- ``src/model_pipeline/training_configs`` - .json files with training configs.
+- ``src/model_pipeline/config_files`` - .json files with training configs.
 Pay attention to above files and adjust them to ensure the fit with your available resources.
   
 Files with `_single` suffix are meant for single training without any optimizations. Others are for multi-hyperparameter optimization.
@@ -151,6 +151,7 @@ As previously, you can run this script with ``--help`` flag.
 ## **License**
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
 
 
 
