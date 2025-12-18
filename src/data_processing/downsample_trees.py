@@ -5,11 +5,12 @@ import h5py
 import shutil
 from tqdm import tqdm
 import sys
+import fpsample
 
 import random
 
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import LabelEncoder
 
 import laspy
 import numpy as np
@@ -18,8 +19,8 @@ import sys
 main_dir = pth.Path(__file__).parent.parent
 sys.path.append(str(main_dir))
 
-from utils.pcd_manipulation import voxelGridFragmentation
 from utils import convert_str_values, load_json, save2json
+import pandas as pd
 
 def decimate_chunk_laz(work_dir: pth.Path, goal_dir: pth.Path, folder_split: dict) -> None:
     if not work_dir.exists():
@@ -36,7 +37,7 @@ def decimate_chunk_laz(work_dir: pth.Path, goal_dir: pth.Path, folder_split: dic
     val_pth = goal_dir.joinpath('val')
     val_pth.mkdir(exist_ok=True, parents=True)
 
-    all_paths = list(work_dir.rglob('*.las')) # todo change to desired format later
+    all_paths = list(work_dir.rglob('*.laz')) # todo change to desired format later
     random.shuffle(all_paths)
 
     train_paths, test_paths = train_test_split(all_paths, 
@@ -59,76 +60,33 @@ def decimate_chunk_laz(work_dir: pth.Path, goal_dir: pth.Path, folder_split: dic
     progress_val = tqdm(enumerate(val_paths), desc=f'Decimation of validation data in folder: {work_dir}',
                           total=len(val_paths))
 
-    scaler = MinMaxScaler(feature_range=(0, 10.))
-
-    def decimate_folder(generator, goal):
-        cut_label = 0
+    def decimate_folder(generator, goal, n_points: int = 16384):
         for _, path in generator:
-            
-                n = 0
-                chunk_num = 0
-
-                with laspy.open(path) as f:
-                    total_points = f.header.point_count
-
 
                 try:
                     las = laspy.read(path)
                 except Exception as e:
                     print(e)
+                    continue
 
                 points = np.vstack((las.x, las.y, las.z)).transpose()
                 points = points - np.mean(points, axis =0)
+                
+                sampled_idx = np.arange(points.shape[0], np.int32)
+                if points.shape[0] > n_points:
+                    sampled_idx = fpsample.bucket_fps_kdline_sampling(points, n_points, h=7)
+                elif n_points // 2 < points.shape[0] < n_points:
+                    sampled_idx = np.random.choice(points.shape[0], n_points, replace=False)
+                elif points.shape[0] == n_points:
+                    pass
+                else:
+                    continue
 
+                points = points[sampled_idx]  # Map back to original indices
 
-                classification = np.asarray(las.classification, dtype=np.int32)
+                file_goal_path = goal.joinpath(f'{path.stem}_.npy')
+                np.save(file_goal_path, points)
 
-                points = points[classification>cut_label]
-
-                intensity = np.asarray(las.intensity, dtype=np.float32)
-                intensity = scaler.fit_transform(intensity.reshape(-1, 1))
-                # intensity = intensity / (2 ** 16 - 1)
-                intensity = intensity.flatten()
-
-                intensity = intensity[classification>cut_label]
-
-                classification = classification[classification >cut_label]
-                classification -= 1 # TODO remove cut cabel part for official repo use
-
-
-                for i, (sampled_idx, noise) in enumerate(voxelGridFragmentation(points,
-                                                                                voxel_size=np.array([20., 20.]), #TODO check if it works, update in other places
-                                                                                num_points=2*8192,
-                                                                                shuffle=True)):
-                    if noise:
-                        continue
-
-                    points_chunk = points[sampled_idx]
-                    points_chunk -= np.mean(points, axis = 0)
-
-                    intensity_chunk = intensity[sampled_idx]
-                    classification_chunk = classification[sampled_idx]
-
-                    if np.unique(classification_chunk).flatten().shape[0] < 3: # TODO a way to avoid imbalance of dataset with huge number of ground points.
-                        continue
-
-                    chunk = np.concatenate([points_chunk,
-                                            intensity_chunk.reshape(-1, 1),
-                                            classification_chunk.reshape(-1, 1)],
-                                            axis = 1)
-                    
-                    n_org = points_chunk.shape[0]
-                    chunk_num += 1
-
-                    generator.set_postfix({
-                        'Points': f"{n}/ {total_points}, ({n_org} -> {points_chunk.shape[0]})",
-                        'Partitioning': f"{i}"
-                    })
-
-                    file_name = goal.joinpath(path.stem+f'_{chunk_num}_{i}.npy')
-                    np.save(file_name, chunk)
-
-                    n+=n_org
 
     decimate_folder(progress_train, train_pth)
     decimate_folder(progress_test, test_pth)
@@ -141,6 +99,9 @@ def convert_dataset(work_dir: pth.Path, goal_dir: pth.Path) -> tuple[pth.Path, p
     work_train = work_dir.joinpath('train')
     work_test = work_dir.joinpath('test')
     work_val = work_dir.joinpath('val')
+
+    if work_dir == goal_dir:
+        return work_train, work_test, work_val
 
     chunk_num_point = 2*8192
     chunk_h5_shape = 30
@@ -280,24 +241,30 @@ def argparser():
     parser.add_argument(
         '--source_path',
         type=str,
+        default="",
         help=(
-            "Dir path with raw, labelled .LAZ files to process."
+            "Dir path with raw, labelled .LAZ files to process.\n" \
+            "If not given defaults to ./data/raw/"
         )
     )
 
     parser.add_argument(
         '--decimated_path',
         type=str,
+        default="",
         help=(
-            "Checkpoint path with cut, distributed but non-converted files."
+            "Checkpoint path with cut, distributed but non-converted files.\n" \
+            "If not given defaults to ./data/decimated/"
         )
     )
 
     parser.add_argument(
         '--converted_path',
         type=str,
+        default="",
         help=(
-            "Final path with files meant for further computations with model pipeline."
+            "Final path with files meant for further computations with model pipeline.\n" \
+            "If not given defaults to ./data/decimated/ and files remain saved as .npy."
         )
     )
 
@@ -310,8 +277,55 @@ def argparser():
         )
     )
 
+    parser.add_argument(
+    '--metadata_path',
+    type=Union[str, pth.Path],
+    default="./data/metadata.csv",
+    help=(
+        "Path to all species listed in original tree dataset.\n" \
+        "If not given defaults to ./data/tree_metadata_dev.csv (original metadata)"
+    )
+    )
+
+    parser.add_argument(
+    '--species_path',
+    type=Union[str, pth.Path],
+    default="./data/species.txt",
+    help=(
+        "Path to all species meant to be processed.\n" \
+        "If not given defaults to ./data/species.txt"
+    )
+    )
+
     return parser.parse_args()
 
+def get_metadata(path2csv: Union[str, pth.Path], species: list):
+    df = pd.read_csv(path2csv)
+    df = df[df['species'].isin(species)]
+
+    specified_species = df[df['species'].isin(species)].copy()
+    other_species = df[~df['species'].isin(species)].copy()
+
+    le = LabelEncoder()
+    specified_species['species_number'] = le.fit_transform(specified_species['species']) # last class is 'others'
+
+    # Merge all other species into "others" and limit to average count
+    if len(other_species) > 0:
+        # Change species name to "others" for all other species
+        other_species['species'] = 'others'
+
+        # Assign species_number = 0
+        other_species['species_number'] = specified_species['species_number'].max() + 1
+
+    df = pd.concat([specified_species, other_species], ignore_index=True)
+
+    df = df[['treeID', 'species', 'species_number']].copy()
+    species_number_counts = df.groupby(['species', 'species_number']).size().reset_index(name='count')
+    species_number_counts.to_csv('output.csv')
+
+    final_metadata = df[['treeID', 'species_number', 'filename']].copy()
+
+    return final_metadata, species_number_counts
 
 def update_paths_config(path2train: pth.Path, path2test: pth.Path, path2val: pth.Path):
 
@@ -343,24 +357,51 @@ def main():
     parser = argparser()
 
     source = parser.source_path
-    source = pth.Path(source)
-
+    if len(source) == 0:
+        source = pth.Path(__file__).parent.parent.parent.joinpath('data/raw')
+    else:
+        source = pth.Path(source)
+    
     decimated = parser.decimated_path
-    decimated = pth.Path(decimated)
+    if len(decimated) == 0:
+        decimated = pth.Path(__file__).parent.parent.parent.joinpath('data/decimated')
+    else:
+        decimated = pth.Path(decimated)
 
     converted = parser.converted_path
-    converted = pth.Path(converted)
+    if len(converted) == 0:
+        converted = decimated
+    else:
+        converted = pth.Path(converted)
+
+    if parser.metadata_path is not None:
+        metadata_path = pth.Path(parser.metadata_path)
+    else:
+        metadata_path = pth.Path(__file__).parent.parent.parent.joinpath('data/tree_metadata_dev.csv')
+
+    if parser.species_path is None:
+        species_path = pth.Path(__file__).parent.parent.parent.joinpath('data/species.txt')
+    else:
+        species_path = pth.Path(parser.species_path)
+
+    with species_path.open('r') as f:
+        species = f.read().splitlines()
+        
 
     folder_split = {
         'train_ratio': parser.folder_split[0],
         'test_ratio': parser.folder_split[1],
         'val_ratio': parser.folder_split[2]
     }
+
     folder_split = convert_str_values(folder_split)
 
+    get_metadata(metadata_path, species)
     decimate_chunk_laz(source, decimated, folder_split)
     rebalance_dataset(decimated, folder_split)
 
+
+    
     path2train, path2test, path2val = convert_dataset(decimated, converted)
 
     update_paths_config(path2train, path2test, path2val)

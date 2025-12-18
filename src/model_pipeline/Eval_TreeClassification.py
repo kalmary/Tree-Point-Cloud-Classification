@@ -1,52 +1,49 @@
+import sys
+import os
+import argparse
+import numpy as np
+import pathlib as pth
+from tqdm import tqdm
+
+
 import torch
 import torch.nn as nn
-import numpy as np
-from torch.utils.data import DataLoader
 from torchinfo import summary
-
-import argparse
-from tqdm import tqdm
-import pathlib as pth
+from torch.utils.data import DataLoader
 
 
-
-from RandLANet_CB import RandLANet
 from _data_loader import *
+from model_pipeline.model import CNN2D_Residual
 
-import os
-import sys
-
-src_dir = pth.Path(__file__).parent.parent
-sys.path.append(str(src_dir))
+current_dir = pth.Path(__file__).parent.parent
+sys.path.append(str(current_dir.parent))
 
 from utils import load_json, load_model, convert_str_values
-from utils import get_dataset_len, calculate_class_weights, calculate_weighted_accuracy, compute_mIoU, LabelSmoothingFocalLoss, get_intLabels, get_Probabilities
+from utils import calculate_weighted_accuracy, get_intLabels, get_Probabilities,get_dataset_len, calculate_class_weights, FocalLoss
 from utils import Plotter, ClassificationReport
 
 
 def _eval_model(config_dict: dict,
-                model: nn.Module) -> tuple[list, list, np.ndarray, np.ndarray, np.ndarray]:
-    
-    test_dataset = Dataset(base_dir=config_dict['data_path_test'],
-                                    num_points=config_dict['num_points'],
-                                    batch_size=config_dict['batch_size'],
-                                    shuffle=False,
-                                    device=torch.device('gpu'))
+               model: nn.Module) -> tuple[list, list, np.ndarray, np.ndarray, np.ndarray]:##TODO spectrogram_params: dict,filtration_params: dict,
 
+    test_dataset = Dataset(path_dir = config_dict['data_path_val'],
+                                resolution_xy=config_dict['input_dim'],
+                                batch_size = config_dict['batch_size'],
+                                shuffle = False,
+                                device = torch.device('cpu'))
+    
     testLoader = DataLoader(test_dataset,
                              batch_size=None,
-                             num_workers = 14,
-                             pin_memory=False)
+                             num_workers = 15,
+                             pin_memory=True) ## TODO RANDLANET valLoader i num_workesr = 14 / pin_memeory = False
 
     total = get_dataset_len(testLoader, verbose=False)
     weights = calculate_class_weights(testLoader, 
                                       config_dict['num_classes'], 
-                                      total=total, 
-                                      device=config_dict['device'],
+                                      total=total,
                                       verbose=False)
-    
-    criterion = LabelSmoothingFocalLoss(alpha=weights.cpu(),
-                                        gamma=config_dict['focal_loss_gamma'])
+
+    criterion = FocalLoss(alpha= weights.cpu(), gamma=config_dict['focal_loss_gamma']).cpu()
 
     loss_per_epoch = 0.
     accuracy_per_epoch = 0.0
@@ -63,12 +60,11 @@ def _eval_model(config_dict: dict,
             model.eval()
             batch_x = batch_x.to(config_dict['device'])
 
-
             outputs = model(batch_x)
             loss = criterion(outputs.cpu(), batch_y.cpu())
-            
-            accuracy = calculate_weighted_accuracy(outputs, batch_y, weights=weights)
-            
+
+            accuracy= calculate_weighted_accuracy(outputs.cpu(), batch_y.cpu(), weights=weights) ##TODO accuracy = calculate_weighted_accuracy(outputs, batch_y, weights=weights)
+
             loss_per_epoch += loss.item()*batch_y.size(0)
             accuracy_per_epoch += accuracy * batch_y.size(0)
 
@@ -92,30 +88,22 @@ def _eval_model(config_dict: dict,
     return total_loss, total_accuracy, np.asarray(all_labels), all_probs, np.asarray(all_predictions)
 
 def eval_model_front(config_dict: dict,
-         spectrogram_params: dict,
-         filtration_params: dict,
-         model: nn.Module,
-         paths: list[pth.Path]):
-
+        model: nn.Module,
+        paths: list[pth.Path]):    ##TODO spectrogram_params: dict,filtration_params: dict
+    
     model_path = paths[0]
     model_name = model_path.stem
 
     plot_dir = paths[1]
 
     total_loss, total_accuracy, all_labels, all_probs, all_predictions  = _eval_model(config_dict=config_dict,
-                                                                                        spectrogram_params=spectrogram_params,
-                                                                                        filtration_params=filtration_params,
-                                                                                        model=model)
-    
-    miou, avg_iou_pc = compute_mIoU(torch.asarray(all_predictions), torch.asarray(all_labels), config_dict['num_classes'])
-    
+                                                                                        model=model)##TODO spectrogram_params: dict,filtration_params: dict,
+    ##TODO miou, avg_iou_pc = compute_mIoU(torch.asarray(all_predictions), torch.asarray(all_labels), config_dict['num_classes'])
     print('='*20)
     print('MODEL TESTED')
     print('Model path', model_path)
     print('Loss: ', total_loss)
     print('ACCURACY: ', total_accuracy)
-    print('mIoU: ', miou)
-    print('IoU per class: ', avg_iou_pc)
     print('Plots saved to:', plot_dir)
     print('='*20)
     
@@ -125,30 +113,26 @@ def eval_model_front(config_dict: dict,
     plotter.prc_curve(f'prc_{model_name}.png', all_labels, all_probs)
     plotter.cnf_matrix(f'cnf_{model_name}.png', all_labels, all_predictions)
 
-    miou_report = f'mIoU: {miou}\nIoU per class: {avg_iou_pc}'
     ClassificationReport(file_path=plot_dir.joinpath(f'classification_report_{model_name}.txt'),
-                         pred=all_predictions,
-                         target=all_labels,
-                         additional_info=miou_report)
+                        pred=all_predictions,
+                        target=all_labels)
 
 def test_function(config_dict: dict,
-                  spectrogram_params: dict,
-                  filtration_params: dict,
-                  model):
-    val_dataset = Dataset(base_dir=config_dict['data_path_test'],
-                                    num_points=config_dict['num_points'],
-                                    batch_size=config_dict['batch_size'],
-                                    shuffle=False,
-                                    device=torch.device('gpu'))
-
-    valLoader = DataLoader(val_dataset,
-                             batch_size=None,
-                             num_workers = 14,
-                             pin_memory=False)
+                model):
     
-    batch_x, batch_y = next(iter(valLoader))
+    test_dataset = Dataset(path_dir = config_dict['data_path_val'], ##TODO val_dataset
+                                resolution_xy=config_dict['input_dim'],
+                                batch_size = config_dict['batch_size'],
+                                shuffle = False,
+                                device = torch.device('cpu'))
+    
+    testLoader = DataLoader(test_dataset,
+                            batch_size=None,
+                            num_workers = 15,
+                            pin_memory=True)
+    
+    batch_x, batch_y = next(iter(testLoader))
     batch_x = batch_x.to(config_dict['device'])
-
     model.eval()
     outputs = model(batch_x)
 
@@ -159,7 +143,6 @@ def test_function(config_dict: dict,
         print(f'Expected output shape: (batch_x.shape[0], {config_dict["num_classes"]})\nReceived: {outputs.shape}')
 
 def parser():
-        
     """
     Parse command-line arguments for automated CNN training pipeline configuration.
     Accepts model naming, computational device selection (CPU/CUDA/GPU), and optional test mode activation.
@@ -179,7 +162,7 @@ def parser():
             "When iterating, name also gets an ID."
         )
     )
-
+    
     parser.add_argument(
         '--device',
         type=str,
@@ -195,7 +178,7 @@ def parser():
         '--mode',
         type=int,
         default=0,
-        choices=[0, 1],
+        choices=[0, 1], # choice limit
         help=(
             "Device for tensor based computation.\n"
             'Pick:\n'
@@ -221,30 +204,27 @@ def main():
     model_path = config_trained_dir.joinpath(f'{model_name}_config.json')
     plot_dir = model_dir.joinpath('plots')
 
-    spectrogram_params = load_json(config_dir.joinpath('fft_params.json'))
-    filtration_params = load_json(config_dir.joinpath('filtration_params.json'))
-
     config_dict = load_json(model_path)
     config_dict = convert_str_values(config_dict)
     config_dict['device'] = device
     
-    model = RandLANet(config_data=config_dict['model_config'], num_classes=config_dict['num_classes'])
+    model = CNN2D_Residual(model_version=config_dict['model_config']['model_version'],
+                            num_classes=config_dict['num_classes'],
+                            in_channels=config_dict['num_channels'])
+    
     model = load_model(file_path=model_dir.joinpath(f'{model_name}.pt'),
                        model=model,
                        device=device)
+    model = model.to(device)
     model.eval()
 
     if args.mode == 0:
-        test_function(config_dict, spectrogram_params, filtration_params, model)
+        test_function(config_dict, model)
     elif args.mode == 1:
         eval_model_front(config_dict=config_dict,
-                         spectrogram_params=spectrogram_params,
-                         filtration_params=filtration_params,
                          model=model,
                          paths=[model_path,
                                 plot_dir])
-        
-
 
 
 if __name__ == '__main__':

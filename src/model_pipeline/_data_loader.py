@@ -1,167 +1,168 @@
 import pathlib as pth
 import numpy as np
+
 import random
-import h5py
-from typing import Optional, Union, OrderedDict
+from typing import Union, OrderedDict, Optional
 
 import torch
 from torch.utils.data import IterableDataset, get_worker_info
 
-import fpsample
-import random
-
-import sys
 import os
-
-src_dir = pth.Path(__file__).parent.parent
-sys.path.append(str(src_dir))
-
-from utils import rotate_points, tilt_points, transform_points
+import sys
+neural_net_dir = os.path.dirname(pth.Path(__file__).parent)
+sys.path.append(neural_net_dir)
 
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-sys.path.append(parent_dir)
+from utils.pcd_manipulation import rotate_points, tilt_points, transform_points, add_gaussian_noise
+from utils.data_augmentation import cloud2sideViews_torch, gaussian_blur
+
+
 
 class Dataset(IterableDataset):
 
-    def __init__(self, base_dir: Union[str, pth.Path],
-                 mode: int = 0,
-                 num_points: int = 4096,
-                 batch_size: int = 1,
+    def __init__(self,
+                 path_dir: Union[str, pth.Path],
+                 resolution_xy: int,
+                 num_classes: int,
+                 batch_size: int,
+                 weights: torch.Tensor = None,
                  shuffle: bool = True,
-                 weights: torch.Tensor = Optional[torch.Tensor],
-                 device: torch.device = Optional[torch.device('cpu')]):
+                 training: bool = True,
+                 buffer: int = 250,
+                 device: Optional[torch.device] = torch.device('cpu')):
 
         super(Dataset).__init__()
 
-        self.path = pth.Path(base_dir)
-        self.device = device
-        self.mode = mode
-
-        self.num_points = num_points
+        self.path = pth.Path(path_dir)
+        self.resolution_xy = resolution_xy
+        self.num_classes = num_classes
         self.batch_size = batch_size
         self.shuffle = shuffle
-        self.weights = weights
+        self.training = training
+        self.device = device
+
+
+        self.buffer_size = buffer
+        self.weights = None
+        if weights is not None:
+            self.weights = weights.cpu().numpy()
+            self.weights = self.weights*10
+            self.weights = self.weights.astype(np.int32).clip(min=1)
+
+            self.weights_dict = OrderedDict()
+            for i, weight in enumerate(self.weights):
+                self.weights_dict[i] = weight.item()
+            
+
 
     def _key_streamer(self):
         """
         Generator over all keys. Each worker processes all keys,
         but only its assigned chunks within each key.
         """
-        with h5py.File(self.path, 'r') as h_file:
-            keys = list(h_file.keys())
-            
-            if self.shuffle:
-                random.shuffle(keys)
 
-            worker_info = get_worker_info()
-            if worker_info is None:
-                iter_keys = keys
+        path_list = list(self.path.rglob('*.npy'))
+        if self.shuffle:
+            random.shuffle(path_list)
+
+        worker_info = get_worker_info()
+        if worker_info is None:
+            iter_paths = path_list
+        else:
+            total_workers = worker_info.num_workers
+            worker_id = worker_info.id
+            iter_paths = path_list[worker_id::total_workers]
+
+        worker_buffer = []
+        for path in iter_paths:
+
+            label = int(path.stem.rsplit('_', 1)[-1])
+                        
+            if self.training: # TODO change this logic after next data processing
+                if label == 0:
+                    continue
+                label -= 1
             else:
-                total_workers = worker_info.num_workers
-                worker_id = worker_info.id
-                iter_keys = keys[worker_id::total_workers]
+                if label == 0:
+                    label = self.num_classes
+                else:
+                    label -= 1
+            if self.shuffle is not None and self.weights is not None:
+                for _ in range(self.weights_dict[label]):
+                    worker_buffer.append((path, label))
 
-            for key in iter_keys:
-                data = h_file[key][:]
-                if self.shuffle:
-                    indices = list(range(data.shape[0]))
-                    random.shuffle(indices)
-                    data = data[indices]
+                    if len(worker_buffer) >= self.buffer_size:
+                        random.shuffle(worker_buffer)
+                        for item in worker_buffer:
+                            yield item
+                            worker_buffer.pop(worker_buffer.index(item))
 
-                yield from data
+                    if len(worker_buffer) > 0:
+                        random.shuffle(worker_buffer)
+                        for item in worker_buffer:
+                            yield item
+                            worker_buffer.pop(worker_buffer.index(item))
+            else:
+                yield (path, label)
 
-    def _add_gaussian_noise(self, cloud, std=0.01):
-        noise = torch.randn_like(cloud) * std
-        noise = noise.to(cloud.device)
-        return cloud + noise
 
     def _process_cloud(self):
+        stream = self._key_streamer()
+        for (path, label) in stream:
+            
+            points = np.load(path)
+            label = torch.asarray(label).long()
 
+            cloud_tensor = torch.from_numpy(points[:, :3]).float()
 
-        retry_count = 0
+            cloud_tensor = cloud_tensor.to(self.device)
+            if self.shuffle:
+                cloud_tensor = add_gaussian_noise(cloud_tensor, std=0.05)
+                cloud_tensor = transform_points(cloud_tensor, device=self.device)
+                cloud_tensor = rotate_points(cloud_tensor, device=self.device)
+                cloud_tensor = tilt_points(cloud_tensor, device=self.device)
 
-        for cloud in self._key_streamer():
-            cloud_tensor = cloud[:, :3]
-
-            cloud_tensor = torch.from_numpy(cloud_tensor[:, :3]).float()
-            cloud_tensor -= cloud_tensor.mean(dim=0)
-
-
-            labels_tensor = torch.from_numpy(cloud[:, -1]).long()
-
-
-            features_tensor = torch.from_numpy(cloud[:, 3]).reshape(-1, 1).float()
-
-            if cloud_tensor.shape[0] > self.num_points:
-                idx = fpsample.bucket_fps_kdline_sampling(cloud_tensor.cpu().numpy(), self.num_points, h=7)
-                cloud_tensor = cloud_tensor[idx]
-                features_tensor = features_tensor[idx]
-                labels_tensor = labels_tensor[idx]
-
-
+            cloud_tensor = cloud2sideViews_torch(points=cloud_tensor, resolution_xy=self.resolution_xy)
 
             if self.shuffle:
-                cloud_tensor = cloud_tensor.to(self.device)
-                cloud_tensor = self._add_gaussian_noise(cloud_tensor, std=0.015)
-                cloud_tensor = rotate_points(cloud_tensor, device=self.device)
-                cloud_tensor = tilt_points(cloud_tensor,
-                                           max_x_tilt_degrees=5,
-                                           max_y_tilt_degrees=5)
-                cloud_tensor = transform_points(cloud_tensor,
-                                                min_scale=0.95,
-                                                max_scale=1.05,
-                                                device=self.device)
-                cloud_tensor = cloud_tensor.cpu()
+                kernel_size = random.choice([3, 5])
+                sigma = random.uniform(0.5, 1.5)
+            else:
+                kernel_size = 3
+                sigma = 0.6
 
-            cloud_tensor -= cloud_tensor.mean(dim=0)
+            cloud_tensor = gaussian_blur(cloud_tensor, kernel_size=(kernel_size, kernel_size), sigma=sigma)
 
+            cloud_tensor = cloud_tensor.cpu()
 
-
-           
-            if features_tensor is not None:
-                cloud_tensor = torch.cat([cloud_tensor, features_tensor], dim=1)
-
-            yield cloud_tensor, labels_tensor
-
+            yield cloud_tensor, label
 
     def __iter__(self):
         stream = self._process_cloud()
-        batch_data = []
-        batch_labels = []
 
-        for cloud_tensor, labels_tensor in stream:
+        cloud_batch = []
+        label_batch = []
 
-            batch_data.append(cloud_tensor)
-            batch_labels.append(labels_tensor)
+        for (cloud, label) in stream:
 
-            if len(batch_data) == self.batch_size:
+            cloud_batch.append(cloud.unsqueeze(0))
+            label_batch.append(label)
 
-                batch_data_tensor = torch.stack(batch_data)
-                batch_labels_tensor = torch.stack(batch_labels)
+            if len(label_batch) >= self.batch_size:
 
-                if self.shuffle:
-                    idx = torch.randperm(batch_labels_tensor.shape[0])
 
-                    batch_data_tensor = batch_data_tensor[idx]
-                    batch_labels_tensor = batch_labels_tensor[idx]
 
-                yield batch_data_tensor, batch_labels_tensor
+                cloud_batch = torch.vstack(cloud_batch).float()
+                label_batch = torch.asarray(label_batch).long()
 
-                batch_data = []
-                batch_labels = []
+                # print('BATCH', cloud_batch.shape)
+                yield cloud_batch, label_batch
 
-        # Yield any remaining samples
-        if len(batch_data) > 0:
+                cloud_batch = []
+                label_batch = []
 
-            batch_data_tensor = torch.stack(batch_data)
-            batch_labels_tensor = torch.stack(batch_labels)
+        if len(label_batch) > 0:
+            cloud_batch = torch.vstack(cloud_batch).float()
+            label_batch = torch.asarray(label_batch).long()
 
-            if self.shuffle:
-                idx = torch.randperm(batch_labels_tensor.shape[0])
-
-                batch_data_tensor = batch_data_tensor[idx]
-                batch_labels_tensor = batch_labels_tensor[idx]
-
-            yield batch_data_tensor, batch_labels_tensor
+            yield cloud_batch, label_batch

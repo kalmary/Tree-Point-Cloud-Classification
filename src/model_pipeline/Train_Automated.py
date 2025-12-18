@@ -29,15 +29,15 @@ from _train_single_case import train_model
 from utils import load_json, save2json, save_model, convert_str_values
 from utils import Plotter
 
-from RandLANet_CB import RandLANet
+from model_pipeline.model import CNN2D_Residual
 
 
 def check_models(model_configs_paths: list[pth.Path],
-                 max_input_size = (1, 8192, 4),
+                 max_input_size = (1, 5, 350, 350),
                  max_memory_GB = 20,
                  verbose: bool = False) -> tuple[list[dict], list[pth.Path]]:
     """
-    Check if models defined in NeuralNet/Architectures/models_1D/model_configs compile.
+    Check if models defined in Tree-Point-Cloud-Classification/src/model_configs compile.
     Print models not compiling.
     Return list of model configs that compile.
     """
@@ -52,7 +52,7 @@ def check_models(model_configs_paths: list[pth.Path],
         model_config = convert_str_values(model_config)
 
         try:
-            model = RandLANet(model_config, 10)
+            model = CNN2D_Residual(config_data=model_config, num_classes=10)
             model.eval()
             model_summary = summary(model, input_size=max_input_size, verbose=0)
             estimated_memory_GB = (model_summary.total_param_bytes + model_summary.total_output_bytes) / (1024 ** 3 )
@@ -74,18 +74,6 @@ def check_models(model_configs_paths: list[pth.Path],
     
     return model_configs, model_configs_paths
 
-def get_step_list(param_value_list: list[Union[int, float]]) -> list[Union[int, float]]:
-    """"Generate a list of values based on the given parameter value and type of list elements."""
-
-    start, stop, step = param_value_list
-    
-    if all(isinstance(x, int) for x in [start, stop, step]):
-        return list(range(int(start), int(stop + step), int(step)))
-    elif all(isinstance(x, (int, float)) for x in [start, stop, step]):
-        return [float(x) for x in np.arange(float(start), float(stop + step), float(step))]
-    else:
-        raise ValueError(f"Invalid parameter values: {param_value_list}. Must be all int or all float.")
-
 def get_factor_list(param_value_list: list[Union[float]]) -> list[Union[float]]:
     """"Generate a list of values based on the given parameter value of list elements."""
 
@@ -101,7 +89,18 @@ def get_factor_list(param_value_list: list[Union[float]]) -> list[Union[float]]:
     factor_list.sort()
     return factor_list
 
+def get_step_list(param_value_list: list[Union[int, float]]) -> list[Union[int, float]]:
+    """"Generate a list of values based on the given parameter value and type of list elements."""
+
+    start, stop, step = param_value_list
     
+    if all(isinstance(x, int) for x in [start, stop, step]):
+        return list(range(int(start), int(stop + step), int(step)))
+    elif all(isinstance(x, (int, float)) for x in [start, stop, step]):
+        return [float(x) for x in np.arange(float(start), float(stop + step), float(step))]
+    else:
+        raise ValueError(f"Invalid parameter values: {param_value_list}. Must be all int or all float.")
+
 
 def generate_experiment_configs(training_config: dict, 
                                 model_configs_list: Sequence[dict],
@@ -122,7 +121,7 @@ def generate_experiment_configs(training_config: dict,
         if "comment" in key.lower():
             continue
         
-        elif isinstance(value, list) and len(value) > 1 and not 'samples_len' in key.lower():
+        elif isinstance(value, list) and len(value) > 1 and not 'samples_len' in key.lower():  ##TODO
             if "learning_rate" in key.lower() or "weight_decay" in key.lower():
                 dynamic_params[key] = get_factor_list(training_config[key])
             else:
@@ -159,7 +158,7 @@ def generate_experiment_configs(training_config: dict,
             exp_config = static_params.copy()
             exp_config.update(dynamic_config)
             exp_config['model_config'] = model_config
-            exp_config['model_config']['num_classes'] = exp_config['num_classes']
+            #exp_config['model_config']['num_classes'] = exp_config['num_classes'] ##TODO 
             
             exp_configs.append(exp_config)
         
@@ -193,7 +192,7 @@ def load_config(base_dir: Union[str, pth.Path], device_name: str, mode: int = 0)
                              "3 - multiple trainings, with optuna.")
 
     base_dir = pth.Path(base_dir)
-    config_files_dir = base_dir.joinpath('training_configs')
+    config_files_dir = base_dir.joinpath('config_files')
     model_configs_dir = base_dir.joinpath('model_configs')
 
     model_configs_paths_list = list(model_configs_dir.rglob('*.json'))
@@ -213,7 +212,7 @@ def load_config(base_dir: Union[str, pth.Path], device_name: str, mode: int = 0)
         model_configs_paths_list = [p for p in model_configs_paths_list if "single" not in p.stem]
     
     training_config = convert_str_values(training_config)
-    model_configs_list, _ = check_models(model_configs_paths_list, max_input_size=(training_config['batch_size'][-1], 8192, 4))
+    model_configs_list, _ = check_models(model_configs_paths_list, max_input_size=(training_config['batch_size'][-1], 5, training_config['input_dim'], training_config['input_dim']))
     
     assert model_configs_list != 0, "No models compiled. Check model_configs - most likely too big models are defined"
 
@@ -319,25 +318,22 @@ class Checkpoint:
         save2json(best_config, config_path)
         logger.info(f'New config for model {model_name} saved to: {config_path}')
 
+        plotter_obj = Plotter(best_config['num_classes'], plots_dir = plot_dir)
+        # iterate over every metric to plot it
+        # group into one plot metric and metric val
+        for metric_name, metric_values in result_hist.items():
+            if 'val' in metric_name:
+                continue
 
+            val_metric = None
+            if metric_name + '_val' in result_hist.keys():
+                val_metric = result_hist[metric_name + '_val']
 
-        if len(result_hist['acc_hist']) > 1:
-            plotter_obj = Plotter(best_config['num_classes'], plots_dir = plot_dir)
+            plotter_obj.plot_metric_hist(f'{metric_name}_{model_name}.png',
+                                         metric_values,
+                                         val_metric=val_metric)
 
-
-            plotter_obj.plot_metric_hist(f'Loss_{model_name}.png',
-                                         result_hist['loss_hist'],
-                                         result_hist['loss_v_hist'])
-
-            plotter_obj.plot_metric_hist(f'Accuracy_{model_name}.png', 
-                                    result_hist['acc_hist'],
-                                    result_hist['acc_v_hist'])
-            
-            plotter_obj.plot_metric_hist(f'mIoU_{model_name}.png', 
-                                    result_hist['miou_hist'],
-                                    result_hist['miou_v_hist'])
-
-            logger.info(f'Metrics history plots for {model_name} saved to: {plot_dir}')
+            logger.info(f'Metric {metric_name} plot for {model_name} saved to: {plot_dir}')
 
 
         self.save_new = False
@@ -387,9 +383,11 @@ def case_based_training(exp_configs: list[dict],
 
             model, best_config, config_path, result_hist = checkpoint.check_checkpoint(model, model_name, final_val, exp_config, result_hist)
     
-    logger.info(f'Best model saved to: {model_path}')
-    logger.info(f'Best config saved to: {config_path}')
-    logger.info('STOP: case_based_training')
+    pprint(20*'=')
+    print(f"Best model saved to: {model_path}")
+    print(f"Best config saved to: {config_path}") 
+    pprint(f'Best training config:\n{best_config}\n')
+    pprint(20*'=')
 
     summary(model)
 
@@ -425,12 +423,6 @@ def objective_function(trial: optuna.Trial,
     pc_start = trial.suggest_float('pc_start', exp_config['pc_start'][0], exp_config['pc_start'][1], step=exp_config['pc_start'][2])
     div_factor = trial.suggest_int('div_factor', exp_config['div_factor'][0], exp_config['div_factor'][1], log=True)
     fin_div_factor = trial.suggest_int('final_div_factor', exp_config['final_div_factor'][0], exp_config['final_div_factor'][1], log=True)
-    num_neighbors = trial.suggest_int('num_neighbors', exp_config['num_neighbors'][0], exp_config['num_neighbors'][1], step = exp_config['num_neighbors'][2])
-    num_points = trial.suggest_int('num_points', exp_config['num_points'][0], exp_config['num_points'][1], step = exp_config['num_points'][2])
-
-    model_config.update({
-        'num_neighbors': num_neighbors
-    })
 
     model_config['num_classes'] = exp_config['num_classes']
 
@@ -441,8 +433,6 @@ def objective_function(trial: optuna.Trial,
         'weight_decay': weight_decay,
         'batch_size': batch_size,
         'epochs': epochs,
-        'num_neighbors': num_neighbors,
-        'num_points': num_points,
         'focal_loss_gamma': focal_loss_gamma,
         'pc_start': pc_start,
         'div_factor': div_factor,
@@ -472,17 +462,15 @@ def objective_function(trial: optuna.Trial,
             
 
         # goal is to maximize val_acc + 1/val_loss
-        final_val_accuracy = result_hist['acc_v_hist'][-1]
-        final_val_loss = result_hist['loss_v_hist'][-1]
-        final_val_miou = result_hist['miou_v_hist'][-1]
+        final_val_accuracy = result_hist['acc_hist_val'][-1]
+        final_val_loss = result_hist['loss_hist_val'][-1]
 
         best_val_accuracy = max(best_val_accuracy, final_val_accuracy)
-        best_val_miou = max(best_val_miou, final_val_miou)
         best_val_loss = min(best_val_loss, final_val_loss)
 
 
         normalized_loss = 1 / (1 + best_val_loss)
-        final_val = 0.4 * best_val_accuracy + 0.2 * normalized_loss + 0.4 * best_val_miou # TODO tuning might be necessary
+        final_val = 0.6 * best_val_accuracy + 0.4 * normalized_loss# TODO tuning might be necessary
 
         checkpoint.check_checkpoint(model,
                                     model_name,
@@ -490,9 +478,11 @@ def objective_function(trial: optuna.Trial,
                                     exp_config,
                                     result_hist)
 
-        logger.info(f'Epoch {epoch_idx+1}/{exp_config["epochs"]}: best_val_acc: {best_val_accuracy:.3f}, best_val_loss: {best_val_loss:.3f}, best_val_miou: {best_val_miou:.3f}, final_val: {final_val:.3f}')
+        logger.info(f'Epoch {epoch_idx+1}/{exp_config["epochs"]}: best_val_acc: {best_val_accuracy:.3f}, best_val_loss: {best_val_loss:.3f}, final_val: {final_val:.3f}')
 
         # report acutal results for prunning
+        trial.report(final_val, step=epoch_idx)
+
         
 
         if trial.should_prune():
@@ -557,10 +547,11 @@ def optuna_based_training(exp_config: list[dict], # only one, non converted conf
                                                     model_name = model_name,
                                                     model_configs_list=model_configs,
                                                     checkpoint=checkpoint),
-                   n_trials=n_trials,
-                   callbacks=[callback])
+                                                    n_trials=n_trials,
+                                                    callbacks=[callback])
     
     pbar.close()
+    
     best_trial = study.best_trial
     best_params = best_trial.params
     best_value = best_trial.value
@@ -697,7 +688,7 @@ def main():
         model_configs_paths_list = list(model_configs_dir.rglob('*.json'))
 
         check_models(model_configs_paths=model_configs_paths_list, 
-                     max_input_size=(1, 8192, 4), 
+                     max_input_size=(10, 5, 350, 350), 
                      max_memory_GB=20,
                      verbose=True)
 
