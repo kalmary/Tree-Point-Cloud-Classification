@@ -22,7 +22,6 @@
 - Memory-efficient GPU-based KNN search: optimized nearest neighbor search directly on GPU
 - Configurable architecture from .json files - all model parameters can be adjusted without code changes
 - High scalability - model can be scaled for different hardware configurations
-
 ---
 # 2. Repository structure: <a name="fstructure"></a>
 
@@ -156,6 +155,8 @@ As previously, you can run this script with ``--help`` flag.
 ## **License**
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+
 
 
 
