@@ -13,11 +13,16 @@
 
 **TREE-POINT-CLOUD-CLASSIFICATION** is a specialized framework for tree species classification that bridges 3D point cloud processing with 2D deep learning. By projecting complex 3D point cloud data into multi-channel 2D representations, the system leverages a dynamically configurable Residual CNN (ResNet) architecture for high-accuracy feature extraction.
 
-Key Features:
+**Key Features:**
 
 - Data preprocessing: Features a specialized data_loader for multi-channel projections,
-- Model definition: necessary code to define and build the ResNet model architecture, allows for scalability and adjustment for hardware-specific needs,
+- Model definition: necessary code to define and build the ResNet model architecture, 
+    allows for scalability and adjustment for hardware-specific needs,
 - Training & Evaluation: Tools for training the model on custom datasets and evaluating its performance,
+- Memory-efficient GPU-based KNN search: optimized nearest neighbor search directly on GPU
+- Configurable architecture from .json files - all model parameters can be adjusted without code changes
+- High scalability - model can be scaled for different hardware configurations
+
 ---
 # 2. Repository structure: <a name="fstructure"></a>
 
