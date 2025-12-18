@@ -72,9 +72,14 @@ git submodule update --init --recursive
 # 4. Usage <a name="usage"></a>
 ### 1. Preprocessing <a name="preprocessing"></a>
 
-Before training a model, data preprocessing must be done. To do so run:
+Before training a model, data preprocessing must be done. The script automatically splits data into train/test/validation 
+sets, rebalances folders to match specified ratios. To do so run:
+
 ```bash
-python src/data_processing/downsample_trees.py --source_path path/to/raw/data --decimated_path path/to/decimated/pcds --converted_path path/to/final/processed/files
+python src/data_processing/downsample_trees.py
+    --source_path path/to/raw/data
+    --decimated_path path/to/decimated/pcds
+    --converted_path path/to/final/processed/files
 ```
 Paths used when processing:
 - source_path: directory with raw (.LAZ by default) point clouds,
@@ -146,6 +151,7 @@ As previously, you can run this script with ``--help`` flag.
 ## **License**
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
 
 
 
