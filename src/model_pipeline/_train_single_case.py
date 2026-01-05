@@ -81,7 +81,7 @@ def train_model(training_dict: dict, num_workers = 16) -> Union[Generator[tuple[
     weights_v = calculate_class_weights(valLoader,
                                         training_dict['num_classes'],
                                         power=0.5,
-                                        device=device_loader, ##TODO Changed
+                                        device=device_loader, 
                                         verbose=False)
     
     train_dataset = Dataset(path_dir = training_dict['data_path_train'],
@@ -106,7 +106,7 @@ def train_model(training_dict: dict, num_workers = 16) -> Union[Generator[tuple[
         print(f"Error initializing model: {e}")
         yield None, {}
 
-    criterion_t = FocalLoss(alpha= weights_t.to(device_loss), gamma=training_dict['focal_loss_gamma']).to(device_loss) ##TODO Changed  
+    criterion_t = FocalLoss(alpha= weights_t.to(device_loss), gamma=training_dict['focal_loss_gamma']).to(device_loss) 
     criterion_v = FocalLoss(alpha= weights_v.to(device_loss), gamma=training_dict['focal_loss_gamma']).to(device_loss)
 
     optimizer = optim.AdamW(model.parameters(), lr = training_dict['learning_rate'], weight_decay=training_dict['weight_decay'])
@@ -215,7 +215,7 @@ def train_model(training_dict: dict, num_workers = 16) -> Union[Generator[tuple[
 
                         accuracy_v = calculate_weighted_accuracy(outputs.cpu(), 
                                                                 batch_y.cpu(), 
-                                                                weights=weights_v.cpu()) ##TODO Changed 
+                                                                weights=weights_v.cpu())
 
                         epoch_loss_v += loss_v.item() * batch_y.size(0)
                         epoch_accuracy_v += accuracy_v * batch_y.size(0)

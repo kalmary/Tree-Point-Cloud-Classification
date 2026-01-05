@@ -24,7 +24,7 @@ from utils import Plotter, ClassificationReport
 
 
 def _eval_model(config_dict: dict,
-               model: nn.Module) -> tuple[list, list, np.ndarray, np.ndarray, np.ndarray]:##TODO spectrogram_params: dict,filtration_params: dict,
+               model: nn.Module) -> tuple[list, list, np.ndarray, np.ndarray, np.ndarray]:
 
     test_dataset = Dataset(path_dir = config_dict['data_path_val'],
                                 resolution_xy=config_dict['input_dim'],
@@ -35,7 +35,7 @@ def _eval_model(config_dict: dict,
     testLoader = DataLoader(test_dataset,
                              batch_size=None,
                              num_workers = 15,
-                             pin_memory=True) ## TODO RANDLANET valLoader i num_workesr = 14 / pin_memeory = False
+                             pin_memory=True)
 
     total = get_dataset_len(testLoader, verbose=False)
     weights = calculate_class_weights(testLoader, 
@@ -63,7 +63,7 @@ def _eval_model(config_dict: dict,
             outputs = model(batch_x)
             loss = criterion(outputs.cpu(), batch_y.cpu())
 
-            accuracy= calculate_weighted_accuracy(outputs.cpu(), batch_y.cpu(), weights=weights) ##TODO accuracy = calculate_weighted_accuracy(outputs, batch_y, weights=weights)
+            accuracy= calculate_weighted_accuracy(outputs.cpu(), batch_y.cpu(), weights=weights)
 
             loss_per_epoch += loss.item()*batch_y.size(0)
             accuracy_per_epoch += accuracy * batch_y.size(0)
@@ -89,7 +89,7 @@ def _eval_model(config_dict: dict,
 
 def eval_model_front(config_dict: dict,
         model: nn.Module,
-        paths: list[pth.Path]):    ##TODO spectrogram_params: dict,filtration_params: dict
+        paths: list[pth.Path]):
     
     model_path = paths[0]
     model_name = model_path.stem
@@ -97,9 +97,7 @@ def eval_model_front(config_dict: dict,
     plot_dir = paths[1]
 
     total_loss, total_accuracy, all_labels, all_probs, all_predictions  = _eval_model(config_dict=config_dict,
-                                                                                        model=model)##TODO spectrogram_params: dict,filtration_params: dict,
-    ##TODO miou, avg_iou_pc = compute_mIoU(torch.asarray(all_predictions), torch.asarray(all_labels), config_dict['num_classes'])
-    print('='*20)
+                                                                                        model=model)
     print('MODEL TESTED')
     print('Model path', model_path)
     print('Loss: ', total_loss)
@@ -120,7 +118,7 @@ def eval_model_front(config_dict: dict,
 def test_function(config_dict: dict,
                 model):
     
-    test_dataset = Dataset(path_dir = config_dict['data_path_val'], ##TODO val_dataset
+    test_dataset = Dataset(path_dir = config_dict['data_path_val'],
                                 resolution_xy=config_dict['input_dim'],
                                 batch_size = config_dict['batch_size'],
                                 shuffle = False,

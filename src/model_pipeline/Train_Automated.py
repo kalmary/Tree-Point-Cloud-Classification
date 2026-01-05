@@ -121,7 +121,7 @@ def generate_experiment_configs(training_config: dict,
         if "comment" in key.lower():
             continue
         
-        elif isinstance(value, list) and len(value) > 1 and not 'samples_len' in key.lower():  ##TODO
+        elif isinstance(value, list) and len(value) > 1 and not 'samples_len' in key.lower():
             if "learning_rate" in key.lower() or "weight_decay" in key.lower():
                 dynamic_params[key] = get_factor_list(training_config[key])
             else:
@@ -158,7 +158,6 @@ def generate_experiment_configs(training_config: dict,
             exp_config = static_params.copy()
             exp_config.update(dynamic_config)
             exp_config['model_config'] = model_config
-            #exp_config['model_config']['num_classes'] = exp_config['num_classes'] ##TODO 
             
             exp_configs.append(exp_config)
         
