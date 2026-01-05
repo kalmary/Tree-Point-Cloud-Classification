@@ -575,7 +575,7 @@ def optuna_based_training(exp_config: list[dict], # only one, non converted conf
 
     print('Training the best model last time: ')
 
-    case_based_training(final_exp_config,
+    case_based_training(final_exp_config, # FIXME inproper dict creation
                         model_name=model_name)
     
     logger.info(f'STOP: optuna_based_training')
