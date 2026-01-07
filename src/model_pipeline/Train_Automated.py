@@ -264,7 +264,7 @@ class Checkpoint:
                          model_name: str,
                          final_val: float,
                          exp_config: dict,
-                         result_hist: dict) -> tuple[nn.Module, dict, pth.Path]:
+                         result_hist: dict) -> tuple[nn.Module, dict, pth.Path, dict]:
     
         
 
@@ -297,7 +297,7 @@ class Checkpoint:
             self.final_val_best = final_val
         
         if not self.save_new:
-            return [model, exp_config, config_path]
+            return model, exp_config, config_path, result_hist 
 
         if not self.existing_ok:
                 for file_path in plot_dir.iterdir():
