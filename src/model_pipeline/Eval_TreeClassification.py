@@ -28,6 +28,7 @@ def _eval_model(config_dict: dict,
 
     test_dataset = Dataset(path_dir = config_dict['data_path_val'],
                                 resolution_xy=config_dict['input_dim'],
+                                num_classes=config_dict['num_classes'],
                                 batch_size = config_dict['batch_size'],
                                 shuffle = False,
                                 device = torch.device('cpu'))
@@ -40,7 +41,6 @@ def _eval_model(config_dict: dict,
     total = get_dataset_len(testLoader, verbose=False)
     weights = calculate_class_weights(testLoader, 
                                       config_dict['num_classes'], 
-                                      total=total,
                                       verbose=False)
 
     criterion = FocalLoss(alpha= weights.cpu(), gamma=config_dict['focal_loss_gamma']).cpu()
@@ -208,9 +208,8 @@ def main():
     config_dict = convert_str_values(config_dict)
     config_dict['device'] = device
     
-    model = CNN2D_Residual(model_version=config_dict['model_config']['model_version'],
-                            num_classes=config_dict['num_classes'],
-                            in_channels=config_dict['num_channels'])
+    model = CNN2D_Residual(config_data=config_dict['model_config'],
+                            num_classes=config_dict['num_classes'])
     
     model = load_model(file_path=model_dir.joinpath(f'{model_name}.pt'),
                        model=model,
