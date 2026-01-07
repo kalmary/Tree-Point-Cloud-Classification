@@ -119,16 +119,16 @@ class Dataset(IterableDataset):
                 cloud_tensor = add_gaussian_noise(cloud_tensor, std=0.05)
                 cloud_tensor = transform_points(cloud_tensor, device=self.device)
                 cloud_tensor = rotate_points(cloud_tensor, device=self.device)
-                cloud_tensor = tilt_points(cloud_tensor, device=self.device)
+                cloud_tensor = tilt_points(cloud_tensor, max_x_tilt_degrees=10, max_y_tilt_degrees=10, device=self.device)
 
             cloud_tensor = cloud2sideViews_torch(points=cloud_tensor, resolution_xy=self.resolution_xy)
 
             if self.shuffle:
                 kernel_size = random.choice([3, 5])
-                sigma = random.uniform(0.5, 1.5)
+                sigma = random.uniform(0.5, 0.8)
             else:
                 kernel_size = 3
-                sigma = 0.6
+                sigma = 0.5
 
             cloud_tensor = gaussian_blur(cloud_tensor, kernel_size=(kernel_size, kernel_size), sigma=sigma)
 

@@ -9,7 +9,7 @@
     "num_classes": 18,
     "batch_size": [30, 50, 10],
 
-    "input_dim": 350,
+    "input_dim": 300,
 
     "epochs": [50, 200, 25],
     "general_convention_comment": "start, stop, step",
@@ -18,7 +18,7 @@
     "learning_rate_comment": "low_lr, high_lr, factor",
 
     "weight_decay": [0.001, 0.00001, 0.1],
-    "focal_loss_gamma": [1.0, 3.0, 0.5],
+    "focal_loss_gamma": [1.0, 2.0, 0.5],
 
 
     "scheduler_params_comment": [],

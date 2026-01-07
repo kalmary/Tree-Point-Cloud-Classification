@@ -58,12 +58,6 @@ class EfficientNetClassifier(nn.Module):
         
         # Replace classifier head
         self._replace_classifier()
-        
-        print(f"EfficientNet-{self.model_version.upper()} initialized:")
-        print(f"  - Input channels: {self.in_channels}")
-        print(f"  - Output classes: {self.num_classes}")
-        print(f"  - Dropout: {self.dropout}")
-        print(f"  - Training from scratch")
     
     def _build_model(self):
         """Load the EfficientNet architecture without pretrained weights."""

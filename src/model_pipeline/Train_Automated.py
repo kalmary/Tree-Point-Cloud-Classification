@@ -53,7 +53,7 @@ def check_models(model_configs_paths: list[pth.Path],
         model_config = convert_str_values(model_config)
 
         try:
-            model = CNN2D_Residual(config_data=model_config, num_classes=10)
+            model = EfficientNetClassifier(config=model_config, num_classes=10)
             model.eval()
             model_summary = summary(model, input_size=max_input_size, verbose=0)
             estimated_memory_GB = (model_summary.total_param_bytes + model_summary.total_output_bytes) / (1024 ** 3 )

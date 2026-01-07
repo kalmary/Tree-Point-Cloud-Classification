@@ -16,6 +16,8 @@ from torch.optim.lr_scheduler import OneCycleLR
 
 
 from model import CNN2D_Residual
+from model_test import EfficientNetClassifier
+
 from _data_loader import *
 from utils import calculate_class_weights, get_dataset_len, calculate_weighted_accuracy, FocalLoss
 from utils import wrap_hist
@@ -41,7 +43,7 @@ def train_model(training_dict: dict, num_workers = 16) -> Union[Generator[tuple[
     device_gpu = torch.device('cuda')
     device_cpu = torch.device('cpu')
 
-    device_loader = device_gpu
+    device_loader = device_cpu
     device_loss = device_gpu
 
 
@@ -62,12 +64,12 @@ def train_model(training_dict: dict, num_workers = 16) -> Union[Generator[tuple[
     trainLoader = DataLoader(train_dataset,
                              batch_size=None,
                              num_workers = num_workers,
-                             pin_memory=True)
+                             pin_memory=False)
     
     valLoader = DataLoader(val_dataset,
                            batch_size=None,
                            num_workers = num_workers,
-                           pin_memory=True)
+                           pin_memory=False)
     
     total_t = get_dataset_len(trainLoader)
     total_v = get_dataset_len(valLoader)
@@ -101,7 +103,7 @@ def train_model(training_dict: dict, num_workers = 16) -> Union[Generator[tuple[
 
 
     try:
-        model = CNN2D_Residual(config_data=training_dict['model_config'], num_classes=training_dict['num_classes']).to(training_dict['device'])
+        model = EfficientNetClassifier(config=training_dict['model_config'], num_classes=training_dict['num_classes']).to(training_dict['device'])
     except Exception as e:
         print(f"Error initializing model: {e}")
         yield None, {}
