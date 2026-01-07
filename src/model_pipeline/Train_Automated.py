@@ -30,6 +30,7 @@ from utils import load_json, save2json, save_model, convert_str_values
 from utils import Plotter
 
 from model_pipeline.model import CNN2D_Residual
+from model_pipeline.model_test import EfficientNetClassifier
 
 
 def check_models(model_configs_paths: list[pth.Path],
