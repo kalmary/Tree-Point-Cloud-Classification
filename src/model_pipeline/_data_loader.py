@@ -81,12 +81,11 @@ class Dataset(IterableDataset):
             if self.training: # TODO change this logic after next data processing
                 if label == 0:
                     continue
-                label -= 1
             else:
                 if label == 0:
                     label = self.num_classes
-                else:
-                    label -= 1
+            label -= 1
+
             if self.shuffle is not None and self.weights is not None:
                 for _ in range(self.weights_dict[label]):
                     worker_buffer.append((path, label))
