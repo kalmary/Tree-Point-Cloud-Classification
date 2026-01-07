@@ -684,13 +684,13 @@ def main():
     elif args.mode == 3:
         optuna_based_training(exp_config=exp_configs,
                               model_name=model_name,
-                              n_trials=2)
+                              n_trials=60)
     elif args.mode == 4:
         model_configs_dir = base_path.joinpath('model_configs')
         model_configs_paths_list = list(model_configs_dir.rglob('*.json'))
 
         check_models(model_configs_paths=model_configs_paths_list, 
-                     max_input_size=(10, 5, 350, 350), 
+                     max_input_size=(20, 5, 300, 300), 
                      max_memory_GB=20,
                      verbose=True)
 

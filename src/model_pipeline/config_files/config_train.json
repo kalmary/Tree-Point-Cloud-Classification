@@ -11,7 +11,7 @@
 
     "input_dim": 300,
 
-    "epochs": [1, 1, 1], 
+    "epochs": [50, 150, 25], 
     
     "general_convention_comment": "start, stop, step",
     
