@@ -314,6 +314,8 @@ class Checkpoint:
         best_config = exp_config
         best_config['device'] = str(best_config['device'])
 
+        best_hist = result_hist
+
         config_path = dict_files_dir.joinpath(f'{model_path.stem}_config.json')
         save2json(best_config, config_path)
         logger.info(f'New config for model {model_name} saved to: {config_path}')
@@ -337,7 +339,7 @@ class Checkpoint:
 
 
         self.save_new = False
-        return model, best_config, config_path
+        return model, best_config, config_path, best_hist
 
         
 
@@ -377,9 +379,9 @@ def case_based_training(exp_configs: list[dict],
         logger.info(f'Case {i+1}/{len(exp_configs)}: {exp_config}')
 
         for model, result_hist in train_model(training_dict=exp_config):
-            logger.info(f'Single model was generated. val_acc: {result_hist["val_acc"][-1]:.3f}  val_loss: {result_hist["val_loss"][-1]:.3f}')
+            logger.info(f'Single model was generated. val_acc: {result_hist["acc_hist_val"][-1]:.3f}  val_loss: {result_hist["loss_hist_val"][-1]:.3f}')
 
-            final_val = result_hist['val_acc'][-1]*0.6 + (1 / (1 + result_hist['val_loss'][-1]))*0.4
+            final_val = result_hist['acc_hist_val'][-1]*0.6 + (1 / (1 + result_hist['loss_hist_val'][-1]))*0.4
 
             model, best_config, config_path, result_hist = checkpoint.check_checkpoint(model, model_name, final_val, exp_config, result_hist)
     
@@ -576,7 +578,7 @@ def optuna_based_training(exp_config: list[dict], # only one, non converted conf
 
     print('Training the best model last time: ')
 
-    case_based_training(final_exp_config, # FIXME inproper dict creation
+    case_based_training([final_exp_config], # FIXME inproper dict creation
                         model_name=model_name)
     
     logger.info(f'STOP: optuna_based_training')
@@ -682,7 +684,7 @@ def main():
     elif args.mode == 3:
         optuna_based_training(exp_config=exp_configs,
                               model_name=model_name,
-                              n_trials=80)
+                              n_trials=2)
     elif args.mode == 4:
         model_configs_dir = base_path.joinpath('model_configs')
         model_configs_paths_list = list(model_configs_dir.rglob('*.json'))

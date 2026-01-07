@@ -11,7 +11,8 @@
 
     "input_dim": 300,
 
-    "epochs": [50, 200, 25],
+    "epochs": [1, 1, 1], 
+    
     "general_convention_comment": "start, stop, step",
     
     "learning_rate": [0.1, 0.001, 0.1],
