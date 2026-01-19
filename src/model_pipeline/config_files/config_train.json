@@ -6,7 +6,7 @@
     "data_path_test": "/home/michal-siniarski/Dokumenty/Z32/LAS/TREE_PROCESSED/npy_distributed/test",
     "data_path_val": "/home/michal-siniarski/Dokumenty/Z32/LAS/TREE_PROCESSED/npy_distributed/val",
     
-    "num_classes": 18,
+    "num_classes": 19,
     "batch_size": [30, 50, 10],
 
     "input_dim": 300,

@@ -52,6 +52,7 @@ def train_model(training_dict: dict, num_workers = 16) -> Union[Generator[tuple[
                                  num_classes=training_dict['num_classes'],
                                  batch_size = training_dict['batch_size'],
                                  shuffle = True,
+                                 training=False,
                                  device = device_loader)
     
     val_dataset = Dataset(path_dir = training_dict['data_path_val'],
@@ -59,6 +60,7 @@ def train_model(training_dict: dict, num_workers = 16) -> Union[Generator[tuple[
                                num_classes=training_dict['num_classes'],
                                batch_size = training_dict['batch_size'],
                                shuffle = False,
+                               training=False,
                                device = device_loader)
     
     trainLoader = DataLoader(train_dataset,
