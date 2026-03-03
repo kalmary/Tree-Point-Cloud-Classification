@@ -27,7 +27,7 @@ class Dataset(IterableDataset):
                  batch_size: int,
                  weights: torch.Tensor = None,
                  shuffle: bool = True,
-                 training: bool = True,
+                #  training: bool = True,
                  buffer: int = 250,
                  device: Optional[torch.device] = torch.device('cpu')):
 
@@ -38,7 +38,7 @@ class Dataset(IterableDataset):
         self.num_classes = num_classes
         self.batch_size = batch_size
         self.shuffle = shuffle
-        self.training = training
+        # self.training = training
         self.device = device
 
 
@@ -78,13 +78,13 @@ class Dataset(IterableDataset):
 
             label = int(path.stem.rsplit('_', 1)[-1])
                         
-            if self.training: # TODO change this logic after next data processing
-                if label == 0:
-                    continue
-            else:
-                if label == 0:
-                    label = self.num_classes
-            label -= 1
+            # if self.training: # TODO change this logic after next data processing
+            #     if label == 0:
+            #         continue
+            # else:
+            #     if label == 0:
+            #         label = self.num_classes
+            # label -= 1
 
             if self.shuffle is not None and self.weights is not None:
                 for _ in range(self.weights_dict[label]):

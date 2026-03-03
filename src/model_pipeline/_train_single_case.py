@@ -52,7 +52,7 @@ def train_model(training_dict: dict, num_workers = 16) -> Union[Generator[tuple[
                                  num_classes=training_dict['num_classes'],
                                  batch_size = training_dict['batch_size'],
                                  shuffle = True,
-                                 training=False,
+                                #  training=False,
                                  device = device_loader)
     
     val_dataset = Dataset(path_dir = training_dict['data_path_val'],
@@ -60,7 +60,7 @@ def train_model(training_dict: dict, num_workers = 16) -> Union[Generator[tuple[
                                num_classes=training_dict['num_classes'],
                                batch_size = training_dict['batch_size'],
                                shuffle = False,
-                               training=False,
+                            #    training=False,
                                device = device_loader)
     
     trainLoader = DataLoader(train_dataset,
@@ -168,6 +168,8 @@ def train_model(training_dict: dict, num_workers = 16) -> Union[Generator[tuple[
                 for batch_x, batch_y in progressbar_t:
                     model.train(True)
                     batch_x = batch_x.to(training_dict['device'])
+
+                    optimizer.zero_grad()
                     outputs = model(batch_x)
 
                     outputs = outputs.to(device_loss)
@@ -175,7 +177,6 @@ def train_model(training_dict: dict, num_workers = 16) -> Union[Generator[tuple[
 
                     loss_t = criterion_t(outputs, batch_y)
 
-                    optimizer.zero_grad()
                     loss_t.backward()
                     optimizer.step()
 
