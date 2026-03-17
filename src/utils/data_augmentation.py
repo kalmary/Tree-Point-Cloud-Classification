@@ -18,7 +18,7 @@ def gaussian_blur(img: Union[torch.Tensor, np.ndarray], kernel_size=(5, 5), sigm
     return blurred_img.to(img.device)
 
 def cloud2sideViews_torch(points: torch.Tensor, resolution_xy: int, margin_ratio: float = 0.05) -> torch.Tensor:
-    points = points.type(torch.float32)
+    points = points.type(torch.float64)
 
     min_xyz = points.min(dim=0).values
     max_xyz = points.max(dim=0).values
@@ -53,7 +53,7 @@ def cloud2sideViews_torch(points: torch.Tensor, resolution_xy: int, margin_ratio
             x_idx = resolution_xy - 1 - x_idx
 
         flat_indices = y_idx * resolution_xy + x_idx
-        depth_map = torch.full((resolution_xy * resolution_xy,), float('inf'), dtype=torch.float32,
+        depth_map = torch.full((resolution_xy * resolution_xy,), float('inf'), dtype=torch.float64,
                                device=distances.device)
 
         # Use scatter_reduce to keep the minimum distance per pixel
@@ -70,7 +70,7 @@ def cloud2sideViews_torch(points: torch.Tensor, resolution_xy: int, margin_ratio
             max_val = values.max()
             img[nonzero_mask] = (values - min_val) / (max_val - min_val + 1e-8)
 
-        return img
+        return img.type(torch.float32)
 
     # Compute distance from each wall
     dist_top = cube_max[2] - z
@@ -88,4 +88,4 @@ def cloud2sideViews_torch(points: torch.Tensor, resolution_xy: int, margin_ratio
     dist_right = x - cube_min[0]
     views.append(build_depth_map((gz, gy), dist_right, flip_y=True, flip_x=True))
 
-    return torch.stack(views, dim=0)
+    return torch.stack(views, dim=0).type(torch.float32)
