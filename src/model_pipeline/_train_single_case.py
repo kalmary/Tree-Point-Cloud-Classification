@@ -106,6 +106,9 @@ def train_model(training_dict: dict, num_workers = 16) -> Union[Generator[tuple[
 
     try:
         model = EfficientNetClassifier(config=training_dict['model_config'], num_classes=training_dict['num_classes']).to(training_dict['device'])
+        if training_dict.get('pretrained_weights_path'):
+            state_dict = torch.load(training_dict['pretrained_weights_path'], map_location=training_dict['device'])
+            model.load_state_dict(state_dict)
     except Exception as e:
         print(f"Error initializing model: {e}")
         yield None, {}

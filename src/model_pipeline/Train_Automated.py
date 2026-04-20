@@ -170,7 +170,7 @@ def generate_experiment_configs(training_config: dict,
 
 
 
-def load_config(base_dir: Union[str, pth.Path], device_name: str, mode: int = 0) -> list[dict]:
+def load_config(base_dir: Union[str, pth.Path], device_name: str, mode: int = 0, transfer_model_path = None) -> list[dict]:
 
     """
     Load configuration files and prepare experiment configurations for training.
@@ -212,8 +212,26 @@ def load_config(base_dir: Union[str, pth.Path], device_name: str, mode: int = 0)
         model_configs_paths_list = [p for p in model_configs_paths_list if "single" not in p.stem]
     
     training_config = convert_str_values(training_config)
-    model_configs_list, _ = check_models(model_configs_paths_list, max_input_size=(training_config['batch_size'][-1], 5, training_config['input_dim'], training_config['input_dim']))
-    
+
+    if transfer_model_path is not None:
+        transfer_model_path = pth.Path(transfer_model_path)
+        dict_files_dir = transfer_model_path / 'dict_files'
+        json_candidates = list(dict_files_dir.glob('*.json')) if dict_files_dir.exists() else list(transfer_model_path.parent.glob('*.json'))
+        assert len(json_candidates) > 0, f"No .json found in {dict_files_dir}"
+        assert len(json_candidates) == 1, f"Expected 1 .json, found {len(json_candidates)} in {dict_files_dir}"
+        saved_config = load_json(json_candidates[0])
+        saved_config = convert_str_values(saved_config)
+        saved_config['data_path_train'] = training_config['data_path_train']
+        saved_config['data_path_val'] = training_config['data_path_val']
+        saved_config['data_path_test'] = training_config['data_path_test']
+        saved_config['pretrained_weights_path'] = str(transfer_model_path)
+        transfer_model_config = saved_config['model_config']
+        transfer_model_config['pretrained_weights_path'] = str(transfer_model_path)
+        model_configs_list = [transfer_model_config]
+    else:
+        batch_size = training_config['batch_size']
+        max_batch = batch_size[-1] if isinstance(batch_size, list) else batch_size
+        model_configs_list, _ = check_models(model_configs_paths_list, max_input_size=(max_batch, 5, training_config['input_dim'], training_config['input_dim']))
     assert model_configs_list != 0, "No models compiled. Check model_configs - most likely too big models are defined"
 
     if mode == 3:
@@ -636,7 +654,12 @@ def argparser():
             '4: only check models'
         )
     )
-
+    parser.add_argument(
+        '--transfer_model_path',
+        type=str,
+        default=None,
+        help="Path to pretrained .pt model file. Config .json must be in the same folder."
+    )
     return parser.parse_args()
 
 
@@ -672,9 +695,11 @@ def main():
     device = args.device.lower()
     model_name = args.model_name
 
+    transfer_model_path = pth.Path(args.transfer_model_path) if args.transfer_model_path else None
+
     base_path = pth.Path(__file__).parent
     if args.mode != 4:
-        exp_configs  = load_config(base_path, device, mode = args.mode)
+        exp_configs = load_config(base_path, device, mode=args.mode, transfer_model_path=transfer_model_path)
 
     if args.mode == 0:
         test_case(exp_config=exp_configs[0])
