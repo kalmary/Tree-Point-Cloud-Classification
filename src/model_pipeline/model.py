@@ -1,6 +1,9 @@
 import torch
 import torch.nn as nn
 from collections import OrderedDict
+from typing import Union
+from pathlib import Path
+import json
 
 
 
@@ -150,6 +153,30 @@ class CNN2D_Residual(nn.Module):
         self.fc2 = nn.Sequential(
             nn.Linear(head_cfg['fc1_output_size'], num_classes)
         )
+
+    @classmethod
+    def from_config_file(cls, config_path: Union[str, Path], num_classes: int):
+        """
+        Load model from a JSON config file
+        
+        Parameters
+        ----------
+        config_path : str or Path
+            Path to JSON config file
+        num_classes : int
+            Number of output classes
+            
+        Returns
+        -------
+        RandLANet
+            Model instance
+        """
+        config_path = Path(config_path)
+        
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+        
+        return cls(model_config=config, num_classes=num_classes)
 
     def forward(self, x):
         # Initial convolution and pooling

@@ -27,7 +27,7 @@ class Dataset(IterableDataset):
                  batch_size: int,
                  weights: torch.Tensor = None,
                  shuffle: bool = True,
-                 training: bool = True,
+                #  training: bool = True,
                  buffer: int = 250,
                  device: Optional[torch.device] = torch.device('cpu')):
 
@@ -38,7 +38,7 @@ class Dataset(IterableDataset):
         self.num_classes = num_classes
         self.batch_size = batch_size
         self.shuffle = shuffle
-        self.training = training
+        # self.training = training
         self.device = device
 
 
@@ -78,15 +78,14 @@ class Dataset(IterableDataset):
 
             label = int(path.stem.rsplit('_', 1)[-1])
                         
-            if self.training: # TODO change this logic after next data processing
-                if label == 0:
-                    continue
-                label -= 1
-            else:
-                if label == 0:
-                    label = self.num_classes
-                else:
-                    label -= 1
+            # if self.training: # TODO change this logic after next data processing
+            #     if label == 0:
+            #         continue
+            # else:
+            #     if label == 0:
+            #         label = self.num_classes
+            # label -= 1
+
             if self.shuffle is not None and self.weights is not None:
                 for _ in range(self.weights_dict[label]):
                     worker_buffer.append((path, label))
@@ -120,16 +119,16 @@ class Dataset(IterableDataset):
                 cloud_tensor = add_gaussian_noise(cloud_tensor, std=0.05)
                 cloud_tensor = transform_points(cloud_tensor, device=self.device)
                 cloud_tensor = rotate_points(cloud_tensor, device=self.device)
-                cloud_tensor = tilt_points(cloud_tensor, device=self.device)
+                cloud_tensor = tilt_points(cloud_tensor, max_x_tilt_degrees=10, max_y_tilt_degrees=10, device=self.device)
 
             cloud_tensor = cloud2sideViews_torch(points=cloud_tensor, resolution_xy=self.resolution_xy)
 
             if self.shuffle:
                 kernel_size = random.choice([3, 5])
-                sigma = random.uniform(0.5, 1.5)
+                sigma = random.uniform(0.5, 0.8)
             else:
                 kernel_size = 3
-                sigma = 0.6
+                sigma = 0.5
 
             cloud_tensor = gaussian_blur(cloud_tensor, kernel_size=(kernel_size, kernel_size), sigma=sigma)
 
