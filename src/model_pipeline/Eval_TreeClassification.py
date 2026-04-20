@@ -129,7 +129,7 @@ def test_function(config_dict: dict,
                             num_workers = 15,
                             pin_memory=True)
     
-    batch_x, batch_y = next(iter(testLoader))
+    batch_x, _ = next(iter(testLoader))
     batch_x = batch_x.to(config_dict['device'])
     model.eval()
     outputs = model(batch_x)
