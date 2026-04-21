@@ -6,6 +6,10 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "fpsample>=1.0.2",
+    "h5py>=3.16.0",
+    "laspy>=2.7.0",
+    "laszip>=0.3.0",
+    "lazrs>=0.8.1",
     "matplotlib>=3.10.8",
     "optuna>=4.8.0",
     "requests>=2.33.1",

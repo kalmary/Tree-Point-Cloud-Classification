@@ -72,11 +72,11 @@ def decimate_chunk_laz(work_dir: pth.Path, goal_dir: pth.Path, folder_split: dic
                 points = np.vstack((las.x, las.y, las.z)).transpose()
                 points = points - np.mean(points, axis =0)
                 
-                sampled_idx = np.arange(points.shape[0], np.int32)
+                sampled_idx = np.arange(points.shape[0], dtype = np.int32)
                 if points.shape[0] > n_points:
                     sampled_idx = fpsample.bucket_fps_kdline_sampling(points, n_points, h=7)
                 elif n_points // 2 < points.shape[0] < n_points:
-                    sampled_idx = np.random.choice(points.shape[0], n_points, replace=False)
+                    sampled_idx = np.random.choice(points.shape[0], n_points, replace=True)
                 elif points.shape[0] == n_points:
                     pass
                 else:
@@ -279,7 +279,7 @@ def argparser():
 
     parser.add_argument(
     '--metadata_path',
-    type=Union[str, pth.Path],
+    type=str,
     default="./data/metadata.csv",
     help=(
         "Path to all species listed in original tree dataset.\n" \
@@ -289,7 +289,7 @@ def argparser():
 
     parser.add_argument(
     '--species_path',
-    type=Union[str, pth.Path],
+    type=str,
     default="./data/species.txt",
     help=(
         "Path to all species meant to be processed.\n" \
@@ -300,7 +300,8 @@ def argparser():
     return parser.parse_args()
 
 def get_metadata(path2csv: Union[str, pth.Path], species: list):
-    df = pd.read_csv(path2csv)
+
+    df = pd.read_csv(path2csv, skipinitialspace=True)
     df = df[df['species'].isin(species)]
 
     specified_species = df[df['species'].isin(species)].copy()
@@ -319,9 +320,10 @@ def get_metadata(path2csv: Union[str, pth.Path], species: list):
 
     df = pd.concat([specified_species, other_species], ignore_index=True)
 
-    df = df[['treeID', 'species', 'species_number']].copy()
+    df = df[['treeID', 'species', 'species_number', 'filename']].copy()
     species_number_counts = df.groupby(['species', 'species_number']).size().reset_index(name='count')
     species_number_counts.to_csv('output.csv')
+
 
     final_metadata = df[['treeID', 'species_number', 'filename']].copy()
 
