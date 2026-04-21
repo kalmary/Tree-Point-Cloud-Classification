@@ -44,6 +44,7 @@ class TreeClassifier:
         _model: nn.Module = load_model(file_path=path2model,
                                             model=model,
                                             device=self.device)
+        _model.eval()
         return _model
         
     def predict(self, cloud: np.ndarray):
@@ -51,10 +52,10 @@ class TreeClassifier:
         imgs = cloud2sideViews_torch(cloud, resolution_xy=350)
         if imgs.ndim == 3:
             imgs = imgs.unsqueeze(0)
-        imgs = imgs.to(self.device)          # ← move input to device
-        with torch.no_grad():                # ← no_grad for inference
+        imgs = imgs.to(self.device)      
+        with torch.no_grad():             
             output = self._model(imgs)
-        labels = output.argmax(dim=-1).cpu().detach().numpy()  # ← .cpu() before .numpy()
+        labels = output.argmax(dim=-1).cpu().detach().numpy()
         return labels.flatten()
 
 
