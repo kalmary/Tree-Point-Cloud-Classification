@@ -93,15 +93,15 @@ class ResBottleneckBlock2D(nn.Module):
 
 
 class CNN2D_Residual(nn.Module):
-    def __init__(self, config_data, num_classes):
+    def __init__(self, config, num_classes):
         super(CNN2D_Residual, self).__init__()
 
-        dropout = config_data['global_params']['dropout']
+        dropout = config['global_params']['dropout']
 
         # INITIAL CONV - for 5 input channels
-        init_cfg = config_data['initial_conv']
+        init_cfg = config['initial_conv']
         self.initial_conv = nn.Sequential(
-            nn.Conv2d(config_data['in_channels'], init_cfg['out_channels'], 
+            nn.Conv2d(config['in_channels'], init_cfg['out_channels'], 
                       kernel_size=init_cfg['kernel_size'], 
                       stride=init_cfg['stride'], 
                       padding=init_cfg['padding'], 
@@ -113,7 +113,7 @@ class CNN2D_Residual(nn.Module):
 
         # RESIDUAL BLOCKS - DYNAMIC BLOCK CREATION
         blocks_list = []
-        for i, block_cfg in enumerate(config_data['residual_blocks_config']):
+        for i, block_cfg in enumerate(config['residual_blocks_config']):
             in_c = block_cfg['in_channels']
             out_c = block_cfg['out_channels']
             stride = block_cfg['stride']
@@ -139,9 +139,9 @@ class CNN2D_Residual(nn.Module):
         self.residual_blocks = nn.Sequential(OrderedDict(blocks_list))
         
         # The last channel number after all blocks
-        final_channels = config_data['residual_blocks_config'][-1]['out_channels']
+        final_channels = config['residual_blocks_config'][-1]['out_channels']
         
-        head_cfg = config_data['head_layers']
+        head_cfg = config['head_layers']
         
         self.global_pool = nn.AdaptiveAvgPool2d(1)
 
@@ -191,3 +191,43 @@ class CNN2D_Residual(nn.Module):
         x = self.fc1(x)
         x = self.fc2(x)
         return x
+    
+if __name__ == "__main__":
+    dummy_config = {
+        "in_channels": 5,
+        "global_params": {
+            "dropout": 0.1
+        },
+        "initial_conv": {
+            "out_channels": 64,
+            "kernel_size": 7,
+            "stride": 2,
+            "padding": 3
+        },
+        "residual_blocks_config": [
+            {"in_channels": 64,  "out_channels": 128, "kernel_size": 3, "stride": 1, "expansion": 4},
+            {"in_channels": 128, "out_channels": 256, "kernel_size": 3, "stride": 2, "expansion": 4},
+            {"in_channels": 256, "out_channels": 512, "kernel_size": 3, "stride": 2, "expansion": 4},
+        ],
+        "head_layers": {
+            "fc1_output_size": 256
+        }
+    }
+
+
+    batch_size  = 1
+    num_classes = 18
+    resolution  = 350
+ 
+    x = torch.randn(batch_size, dummy_config["in_channels"], resolution, resolution)
+ 
+    model = CNN2D_Residual(config=dummy_config, num_classes=num_classes)
+    model.eval()
+ 
+    with torch.no_grad():
+        out = model(x)
+ 
+    print(f"Input:  {x.shape}")
+    print(f"Output: {out.shape}")   # expected (4, 18)
+    assert out.shape == (batch_size, num_classes), f"Unexpected output shape: {out.shape}"
+    print("OK")

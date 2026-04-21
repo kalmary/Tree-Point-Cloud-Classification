@@ -11,7 +11,7 @@ matplotlib.use('Agg')
 import torch
 import torch.optim as optim
 import torch.multiprocessing as mp
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
 from torch.optim.lr_scheduler import OneCycleLR
 
 
@@ -19,7 +19,7 @@ from model import CNN2D_Residual
 from model_test import EfficientNetClassifier
 
 from _data_loader import *
-from utils import calculate_class_weights, get_dataset_len, calculate_weighted_accuracy, FocalLoss
+from utils import compute_pos_weights, get_dataset_len, calculate_accuracy, FocalLoss
 from utils import wrap_hist
 
 warning_to_filter = "Attempting to run cuBLAS, but there was no current CUDA context!"
@@ -47,65 +47,91 @@ def train_model(training_dict: dict, num_workers = 16) -> Union[Generator[tuple[
     device_loss = device_gpu
 
 
-    train_dataset = Dataset(path_dir = training_dict['data_path_train'],
-                                 resolution_xy = training_dict['input_dim'],
-                                 num_classes=training_dict['num_classes'],
-                                 batch_size = training_dict['batch_size'],
-                                 shuffle = True,
-                                #  training=False,
-                                 device = device_loader)
+    # train_dataset = Dataset(path_dir = training_dict['data_path_train'],
+    #                              resolution_xy = training_dict['input_dim'],
+    #                              num_classes=training_dict['num_classes'],
+    #                              batch_size = training_dict['batch_size'],
+    #                              shuffle = True,
+    #                              device = device_loader)
     
-    val_dataset = Dataset(path_dir = training_dict['data_path_val'],
+    # val_dataset = Dataset(path_dir = training_dict['data_path_val'],
+    #                            resolution_xy=training_dict['input_dim'],
+    #                            num_classes=training_dict['num_classes'],
+    #                            batch_size = training_dict['batch_size'],
+    #                            shuffle = False,
+    #                            device = device_loader)
+    
+    # trainLoader = DataLoader(train_dataset,
+    #                          batch_size=None,
+    #                          num_workers = num_workers,
+    #                          pin_memory=False)
+    
+    # valLoader = DataLoader(val_dataset,
+    #                        batch_size=None,
+    #                        num_workers = num_workers,
+    #                        pin_memory=False)
+    
+
+    train_dataset = NpyDataset(path_dir=training_dict['data_path_train'],
                                resolution_xy=training_dict['input_dim'],
-                               num_classes=training_dict['num_classes'],
-                               batch_size = training_dict['batch_size'],
-                               shuffle = False,
-                            #    training=False,
-                               device = device_loader)
+                               training=True,
+                               device=device_loader)
     
-    trainLoader = DataLoader(train_dataset,
-                             batch_size=None,
-                             num_workers = num_workers,
-                             pin_memory=False)
+    val_dataset = NpyDataset(path_dir=training_dict['data_path_val'],
+                            resolution_xy=training_dict['input_dim'],
+                            training=False,
+                            device=device_loader)
     
-    valLoader = DataLoader(val_dataset,
-                           batch_size=None,
-                           num_workers = num_workers,
-                           pin_memory=False)
-    
+    trainLoader = DataLoader(
+        train_dataset,
+        batch_size=training_dict["batch_size"],
+        shuffle=True,
+        num_workers=num_workers,
+        pin_memory=False,          # faster CPU->GPU transfers
+        persistent_workers=False,  # keep workers alive between epochs
+        prefetch_factor=2,
+    )
+
+    valLoader = DataLoader(
+        val_dataset,
+        batch_size=training_dict["batch_size"],
+        num_workers=num_workers,
+        pin_memory=False,          # faster CPU->GPU transfers
+        persistent_workers=False,  # keep workers alive between epochs
+        prefetch_factor=2,
+    )
+
+
+    weights_t, labels = compute_pos_weights(data_dir=training_dict['data_path_train'],
+                                    num_classes=training_dict["num_classes"],
+                                    power=0.25)
+    weights_t_samples = weights_t[labels]
+
+    weights_v, _ = compute_pos_weights(data_dir=training_dict['data_path_val'],
+                                    num_classes=training_dict["num_classes"],
+                                    power=0.25)
+
+    sampler_t = WeightedRandomSampler(
+        weights=weights_t_samples,
+        num_samples=len(weights_t_samples),
+        replacement=True
+    )
+
+    trainLoader = DataLoader(
+        train_dataset,
+        batch_size=training_dict["batch_size"],
+        sampler=sampler_t,          # mutually exclusive with shuffle=True
+        num_workers=num_workers,
+        pin_memory=True,          # faster CPU->GPU transfers
+        persistent_workers=False,  # keep workers alive between epochs
+        prefetch_factor=2,
+    )
+
     total_t = get_dataset_len(trainLoader)
     total_v = get_dataset_len(valLoader)
 
-    weights_t = calculate_class_weights(trainLoader,
-                                        training_dict['num_classes'],
-                                        power=0.5,
-                                        device=device_loader,
-                                        verbose=False)
-
-    weights_v = calculate_class_weights(valLoader,
-                                        training_dict['num_classes'],
-                                        power=0.5,
-                                        device=device_loader, 
-                                        verbose=False)
-    
-    train_dataset = Dataset(path_dir = training_dict['data_path_train'],
-                                resolution_xy = training_dict['input_dim'],
-                                num_classes=training_dict['num_classes'],
-                                batch_size = training_dict['batch_size'],
-                                shuffle = True,
-                                weights=weights_t,
-                                device = device_loader)
-    
-    trainLoader = DataLoader(train_dataset,
-                             batch_size=None,
-                             num_workers = num_workers,          
-                             pin_memory=True)
-    
-    total_t = get_dataset_len(trainLoader)
-
-
     try:
-        model = EfficientNetClassifier(config=training_dict['model_config'], num_classes=training_dict['num_classes']).to(training_dict['device'])
+        model = CNN2D_Residual(config=training_dict['model_config'], num_classes=training_dict['num_classes']).to(training_dict['device'])
     except Exception as e:
         print(f"Error initializing model: {e}")
         yield None, {}
@@ -185,19 +211,19 @@ def train_model(training_dict: dict, num_workers = 16) -> Union[Generator[tuple[
                     except Exception:
                         pass
 
-                    # accuracy_t = calculate_weighted_accuracy(outputs, batch_y, weights=weights_t)
+
                     current_lr = optimizer.param_groups[0]['lr']
 
                     epoch_loss_t += loss_t.item() * batch_y.size(0)
-                    # epoch_accuracy_t += accuracy_t * batch_y.size(0)
+
                     epoch_samples_t += batch_y.size(0)
 
                     avg_loss_t = epoch_loss_t / epoch_samples_t
-                    # avg_accuracy_t = epoch_accuracy_t / epoch_samples_t
+
 
                     progressbar_t.set_postfix({
                         "Loss_train": f"{avg_loss_t:.6f}",
-                        # "Acc_train": f"{avg_accuracy_t:.6f}",
+
                         "learning_rate": f"{current_lr:.10f}"
                     })
 
@@ -218,9 +244,8 @@ def train_model(training_dict: dict, num_workers = 16) -> Union[Generator[tuple[
 
                         loss_v = criterion_v(outputs, batch_y)
 
-                        accuracy_v = calculate_weighted_accuracy(outputs.cpu(), 
-                                                                batch_y.cpu(), 
-                                                                weights=weights_v.cpu())
+                        accuracy_v = calculate_accuracy(outputs.cpu(), 
+                                                                batch_y.cpu())
 
                         epoch_loss_v += loss_v.item() * batch_y.size(0)
                         epoch_accuracy_v += accuracy_v * batch_y.size(0)
