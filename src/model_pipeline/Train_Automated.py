@@ -30,11 +30,10 @@ from utils import load_json, save2json, save_model, convert_str_values
 from utils import Plotter
 
 from model_pipeline.model import CNN2D_Residual
-from model_pipeline.model_test import EfficientNetClassifier
 
 
 def check_models(model_configs_paths: list[pth.Path],
-                 max_input_size = (1, 5, 350, 350),
+                 max_input_size = (30, 5, 350, 350),
                  max_memory_GB = 20,
                  verbose: bool = False) -> tuple[list[dict], list[pth.Path]]:
     """
@@ -53,7 +52,7 @@ def check_models(model_configs_paths: list[pth.Path],
         model_config = convert_str_values(model_config)
 
         try:
-            model = EfficientNetClassifier(config=model_config, num_classes=10)
+            model = CNN2D_Residual(config=model_config, num_classes=10)
             model.eval()
             model_summary = summary(model, input_size=max_input_size, verbose=0)
             estimated_memory_GB = (model_summary.total_param_bytes + model_summary.total_output_bytes) / (1024 ** 3 )
@@ -192,7 +191,7 @@ def load_config(base_dir: Union[str, pth.Path], device_name: str, mode: int = 0)
                              "3 - multiple trainings, with optuna.")
 
     base_dir = pth.Path(base_dir)
-    config_files_dir = base_dir.joinpath('config_files')
+    config_files_dir = base_dir.joinpath('training_configs')
     model_configs_dir = base_dir.joinpath('model_configs')
 
     model_configs_paths_list = list(model_configs_dir.rglob('*.json'))
@@ -212,7 +211,7 @@ def load_config(base_dir: Union[str, pth.Path], device_name: str, mode: int = 0)
         model_configs_paths_list = [p for p in model_configs_paths_list if "single" not in p.stem]
     
     training_config = convert_str_values(training_config)
-    model_configs_list, _ = check_models(model_configs_paths_list, max_input_size=(training_config['batch_size'][-1], 5, training_config['input_dim'], training_config['input_dim']))
+    model_configs_list, _ = check_models(model_configs_paths_list)
     
     assert model_configs_list != 0, "No models compiled. Check model_configs - most likely too big models are defined"
 
@@ -689,10 +688,7 @@ def main():
         model_configs_dir = base_path.joinpath('model_configs')
         model_configs_paths_list = list(model_configs_dir.rglob('*.json'))
 
-        check_models(model_configs_paths=model_configs_paths_list, 
-                     max_input_size=(20, 5, 300, 300), 
-                     max_memory_GB=20,
-                     verbose=True)
+        check_models(model_configs_paths=model_configs_paths_list, verbose=True)
 
         
 

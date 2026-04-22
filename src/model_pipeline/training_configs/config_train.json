@@ -2,9 +2,9 @@
     "train_repeat": 4,
     "train_repeat_comment": "How many times training is done for the same config, to get average/ best results",
 
-    "data_path_train": "/home/michal-siniarski/Dokumenty/Z32/LAS/TREE_PROCESSED/npy_distributed/train",
-    "data_path_test": "/home/michal-siniarski/Dokumenty/Z32/LAS/TREE_PROCESSED/npy_distributed/test",
-    "data_path_val": "/home/michal-siniarski/Dokumenty/Z32/LAS/TREE_PROCESSED/npy_distributed/val",
+    "data_path_train": "/mnt/DATA_SSD/BRIK/TREE_CLASS/decimated/train",
+    "data_path_test": "/mnt/DATA_SSD/BRIK/TREE_CLASS/decimated/test",
+    "data_path_val": "/mnt/DATA_SSD/BRIK/TREE_CLASS/decimated/val",
     
     "num_classes": 19,
     "batch_size": [30, 50, 10],
@@ -15,7 +15,7 @@
     
     "general_convention_comment": "start, stop, step",
     
-    "learning_rate": [0.1, 0.001, 0.1],
+    "learning_rate": [0.01, 0.0001, 0.1],
     "learning_rate_comment": "low_lr, high_lr, factor",
 
     "weight_decay": [0.001, 0.00001, 0.1],

@@ -28,7 +28,10 @@ def decimate_chunk_laz(work_dir: pth.Path, goal_dir: pth.Path, folder_split: dic
     Reads .laz files, looks up per-file labels from metadata, performs FPS subsampling,
     and saves (N, 4) arrays [X, Y, Z, label] into train/test/val subfolders.
     Files are split per source filename to avoid data leakage.
+    Files not found in metadata are assigned label 19 ("other").
     """
+    OTHER_LABEL = 18
+
     if not work_dir.exists():
         raise ValueError('Incorrect path:', work_dir)
 
@@ -44,36 +47,40 @@ def decimate_chunk_laz(work_dir: pth.Path, goal_dir: pth.Path, folder_split: dic
     all_paths = list(work_dir.rglob('*.laz'))
 
     # Build treeID -> label lookup from metadata
-    # metadata has columns: treeID, species_number, filename
-    # filename in metadata is the stem of the .laz file
     tree_id_to_label: dict[str, int] = dict(
         zip(metadata['treeID'].astype(str), metadata['species_number'].astype(int))
     )
 
-    # Filter to only files that have a metadata entry
+    # All files are included; missing metadata entries get label OTHER_LABEL
     labeled_paths = []
     for p in all_paths:
-        tree_id = p.stem  # assume file stem == treeID
-        if tree_id in tree_id_to_label:
-            labeled_paths.append(p)
-        else:
-            print(f'[WARN] No metadata entry for {p.name}, skipping.')
+        tree_id = p.stem
+        if tree_id not in tree_id_to_label:
+            # print(f'[WARN] No metadata entry for {p.name}, assigning to "other" ({OTHER_LABEL}).')
+            tree_id_to_label[tree_id] = OTHER_LABEL
+        labeled_paths.append(p)
 
     if len(labeled_paths) == 0:
-        raise RuntimeError('No .laz files matched metadata treeIDs. Check treeID <-> filename mapping.')
+        raise RuntimeError('No .laz files found in source directory.')
 
-    # Split per file (not per point) to avoid leakage
+    # Stratified split per file (not per point) to avoid leakage
+    labels_for_split = [tree_id_to_label[p.stem] for p in labeled_paths]
+
     train_paths, test_paths = train_test_split(
         labeled_paths,
         train_size=folder_split['train_ratio'],
         random_state=42,
         shuffle=True,
+        stratify=labels_for_split,
     )
+
+    test_labels_for_split = [tree_id_to_label[p.stem] for p in test_paths]
     test_paths, val_paths = train_test_split(
         test_paths,
         train_size=folder_split['test_ratio'] / (folder_split['test_ratio'] + folder_split['val_ratio']),
         random_state=42,
         shuffle=True,
+        stratify=test_labels_for_split,
     )
 
     def decimate_folder(paths: list[pth.Path], goal: pth.Path, desc: str, n_points: int = 16384):
@@ -94,12 +101,12 @@ def decimate_chunk_laz(work_dir: pth.Path, goal_dir: pth.Path, folder_split: dic
 
             if n > n_points:
                 sampled_idx = fpsample.bucket_fps_kdline_sampling(xyz, n_points, h=7)
-            elif n_points // 2 < n < n_points:
+            elif n_points // 4 < n < n_points:
                 sampled_idx = np.random.choice(n, n_points, replace=True)
             elif n == n_points:
                 sampled_idx = np.arange(n)
             else:
-                print(f'[SKIP] {path.name} has only {n} points (< {n_points // 2}), skipping.')
+                # print(f'[SKIP] {path.name} has only {n} points (< {n_points // 2}), skipping.')
                 continue
 
             xyz = xyz[sampled_idx]  # (N, 3)
@@ -127,7 +134,7 @@ def convert_dataset(work_dir: pth.Path, goal_dir: pth.Path) -> tuple[pth.Path, p
     if work_dir == goal_dir:
         return work_train, work_test, work_val
 
-    n_points      = 16384
+    n_points       = 16384
     chunk_h5_shape = 30
     n_features     = 4  # X, Y, Z, label
 
@@ -145,8 +152,8 @@ def convert_dataset(work_dir: pth.Path, goal_dir: pth.Path) -> tuple[pth.Path, p
             return
 
         with h5py.File(h5_path, 'w') as h5_file:
-            chunk_buf  = np.zeros((0, n_points, n_features), dtype=np.float32)
-            chunk_num  = 0
+            chunk_buf = np.zeros((0, n_points, n_features), dtype=np.float32)
+            chunk_num = 0
 
             for path in tqdm(path_list, desc=f'Converting -> {h5_path.name}', total=len(path_list)):
                 arr = np.load(path).astype(np.float32)  # (N, 4)
@@ -256,8 +263,8 @@ def argparser():
         help="Folder split ratios for train, test, validation."
     )
 
-    parser.add_argument('--metadata_path', type=Union[str, pth.Path], default="./data/metadata.csv")
-    parser.add_argument('--species_path',  type=Union[str, pth.Path], default="./data/species.txt")
+    parser.add_argument('--metadata_path', type=Union[str, pth.Path], default=None)
+    parser.add_argument('--species_path',  type=Union[str, pth.Path], default=None)
 
     return parser.parse_args()
 
@@ -273,7 +280,7 @@ def get_metadata(path2csv: Union[str, pth.Path], species: list) -> tuple[pd.Data
 
     if len(other_species) > 0:
         other_species['species']        = 'others'
-        other_species['species_number'] = int(specified_species['species_number'].max()) + 1
+        other_species['species_number'] = 18
 
     df = pd.concat([specified_species, other_species], ignore_index=True)
     df = df[['treeID', 'species', 'species_number', 'filename']].copy()
@@ -334,7 +341,7 @@ def main():
 
     metadata, species_counts = get_metadata(metadata_path, species)
     print(f"Loaded metadata: {len(metadata)} entries, {species_counts.shape[0]} species groups.")
-
+    print(metadata, species_counts)
     decimate_chunk_laz(source, decimated, folder_split, metadata)
     rebalance_dataset(decimated, folder_split)
 

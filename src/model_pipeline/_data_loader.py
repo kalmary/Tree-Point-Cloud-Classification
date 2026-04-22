@@ -30,6 +30,7 @@ class Dataset(IterableDataset):
                  weights: torch.Tensor = None,
                  shuffle: bool = True,
                  buffer: int = 250,
+                 return_others: bool = False,
                  device: Optional[torch.device] = torch.device('cpu')):
 
         super(Dataset).__init__()
@@ -67,6 +68,8 @@ class Dataset(IterableDataset):
 
         for path in npy_paths:
             label = int(path.stem.rsplit('_', 1)[-1])
+            if label >= self.num_classes:
+                continue
             arr   = np.load(path)
             yield arr[:, :3], label
 
@@ -154,12 +157,19 @@ class NpyDataset(torch.utils.data.Dataset):
                  path_dir: Union[str, pth.Path],
                  resolution_xy: int = 350,
                  training: bool = True,
+                 return_others: bool = False,
                  device: Optional[torch.device] = torch.device('cpu')):
  
         self.path = pth.Path(path_dir)
+        self.resolution_xy = resolution_xy
         self.training = training
         self.device = device
         self.files = sorted(self.path.rglob('*.npy'))
+
+        if not return_others:
+            self.files = [f for f in self.files if int(f.stem.rsplit('_', 1)[-1]) != 18] # TODO change if necessary
+        else:
+            self.files = sorted(self.path.rglob('*.npy'))
  
     def __len__(self):
         return len(self.files)
@@ -167,6 +177,7 @@ class NpyDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         path  = self.files[idx]
         label = int(path.stem.rsplit('_', 1)[-1])
+    
         xyz   = np.load(path)[:, :3]
  
         cloud = torch.from_numpy(xyz).float().to(self.device)
