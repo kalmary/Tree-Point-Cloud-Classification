@@ -16,7 +16,7 @@ from torch.optim.lr_scheduler import OneCycleLR
 
 
 from model import CNN2D_Residual
-from model_test import EfficientNetClassifier
+from model_test import ResNetClassifier
 
 from _data_loader import *
 from utils import compute_pos_weights, get_dataset_len, calculate_accuracy, FocalLoss
@@ -37,7 +37,7 @@ sys.path.append(nerual_net_dir)
 
 
 
-def train_model(training_dict: dict, num_workers = 16) -> Union[Generator[tuple[nn.Module, dict], None, None],
+def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[nn.Module, dict], None, None],
                                                 Generator[tuple[None, dict], None, None]]:      
     
     device_gpu = torch.device('cuda')
@@ -102,12 +102,12 @@ def train_model(training_dict: dict, num_workers = 16) -> Union[Generator[tuple[
     )
 
 
-    weights_t, labels = compute_pos_weights(data_dir=training_dict['data_path_train'],
+    weights_t, _ = compute_pos_weights(data_dir=training_dict['data_path_train'],
                                     num_classes=training_dict["num_classes"],
                                     power=0.35,
                                     ignore_index=18)
     
-    weights_t_samples = weights_t[labels]
+    # weights_t_samples = weights_t[labels]
 
     weights_v, _ = compute_pos_weights(data_dir=training_dict['data_path_val'],
                                     num_classes=training_dict["num_classes"],
@@ -134,7 +134,7 @@ def train_model(training_dict: dict, num_workers = 16) -> Union[Generator[tuple[
     total_v = get_dataset_len(valLoader)
 
     try:
-        model = CNN2D_Residual(config=training_dict['model_config'], num_classes=training_dict['num_classes']).to(training_dict['device'])
+        model = ResNetClassifier(config=training_dict['model_config'], num_classes=training_dict['num_classes']).to(training_dict['device'])
     except Exception as e:
         print(f"Error initializing model: {e}")
         yield None, {}
