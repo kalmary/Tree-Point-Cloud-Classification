@@ -104,33 +104,31 @@ def train_model(training_dict: dict, num_workers = 16) -> Union[Generator[tuple[
 
     weights_t, labels = compute_pos_weights(data_dir=training_dict['data_path_train'],
                                     num_classes=training_dict["num_classes"],
-                                    power=1.,
+                                    power=0.35,
                                     ignore_index=18)
-    print(weights_t)
-    import sys
-    sys.exit()
+    
     weights_t_samples = weights_t[labels]
 
     weights_v, _ = compute_pos_weights(data_dir=training_dict['data_path_val'],
                                     num_classes=training_dict["num_classes"],
-                                    power=0.25,
+                                    power=0.35,
                                     ignore_index=18)
 
-    sampler_t = WeightedRandomSampler(
-        weights=weights_t_samples,
-        num_samples=len(weights_t_samples),
-        replacement=True
-    )
+    # sampler_t = WeightedRandomSampler(
+    #     weights=weights_t_samples,
+    #     num_samples=len(weights_t_samples),
+    #     replacement=True
+    # )
 
-    trainLoader = DataLoader(
-        train_dataset,
-        batch_size=training_dict["batch_size"],
-        sampler=sampler_t,          # mutually exclusive with shuffle=True
-        num_workers=num_workers,
-        pin_memory=True,          # faster CPU->GPU transfers
-        persistent_workers=False,  # keep workers alive between epochs
-        prefetch_factor=2,
-    )
+    # trainLoader = DataLoader(
+    #     train_dataset,
+    #     batch_size=training_dict["batch_size"],
+    #     sampler=sampler_t,          # mutually exclusive with shuffle=True
+    #     num_workers=num_workers,
+    #     pin_memory=True,          # faster CPU->GPU transfers
+    #     persistent_workers=False,  # keep workers alive between epochs
+    #     prefetch_factor=2,
+    # )
 
     total_t = get_dataset_len(trainLoader)
     total_v = get_dataset_len(valLoader)

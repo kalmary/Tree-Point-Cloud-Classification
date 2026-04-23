@@ -48,8 +48,12 @@ def decimate_chunk_laz(work_dir: pth.Path, goal_dir: pth.Path, folder_split: dic
 
     # Build treeID -> label lookup from metadata
     tree_id_to_label: dict[str, int] = dict(
-        zip(metadata['treeID'].astype(str), metadata['species_number'].astype(int))
+        zip(
+            metadata['filename'].apply(lambda x: pth.Path(x).stem),
+            metadata['species_number'].astype(int)
+        )
     )
+
 
     # All files are included; missing metadata entries get label OTHER_LABEL
     labeled_paths = []
@@ -101,7 +105,7 @@ def decimate_chunk_laz(work_dir: pth.Path, goal_dir: pth.Path, folder_split: dic
 
             if n > n_points:
                 sampled_idx = fpsample.bucket_fps_kdline_sampling(xyz, n_points, h=7)
-            elif n_points // 4 < n < n_points:
+            elif 0 < n < n_points:
                 sampled_idx = np.random.choice(n, n_points, replace=True)
             elif n == n_points:
                 sampled_idx = np.arange(n)
@@ -340,6 +344,8 @@ def main():
     })
 
     metadata, species_counts = get_metadata(metadata_path, species)
+
+    
     print(f"Loaded metadata: {len(metadata)} entries, {species_counts.shape[0]} species groups.")
     print(metadata, species_counts)
     decimate_chunk_laz(source, decimated, folder_split, metadata)
