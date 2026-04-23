@@ -384,7 +384,7 @@ def case_based_training(exp_configs: list[dict],
             final_val = result_hist['acc_hist_val'][-1]*0.6 + (1 / (1 + result_hist['loss_hist_val'][-1]))*0.4
 
             model, best_config, config_path, result_hist = checkpoint.check_checkpoint(model, model_name, final_val, exp_config, result_hist)
-    
+            
     pprint(20*'=')
     print(f"Best model saved to: {model_path}")
     print(f"Best config saved to: {config_path}") 
