@@ -273,8 +273,21 @@ def argparser():
     return parser.parse_args()
 
 
-def get_metadata(path2csv: Union[str, pth.Path], species: list) -> tuple[pd.DataFrame, pd.DataFrame]:
+def get_metadata(
+    path2csv: Union[str, pth.Path],
+    species: list,
+    merge_map: dict[str, list[str]] | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    
     df = pd.read_csv(path2csv)
+
+    # Apply merges before anything else
+    if merge_map:
+        for new_name, old_names in merge_map.items():
+            df.loc[df['species'].isin(old_names), 'species'] = new_name
+        # Update species list too: replace merged origins with new name
+        species = [s for s in species if s not in {n for v in merge_map.values() for n in v}]
+        species += [k for k in merge_map if k not in species]
 
     specified_species = df[df['species'].isin(species)].copy()
     other_species     = df[~df['species'].isin(species)].copy()

@@ -504,7 +504,7 @@ def optuna_based_training(exp_config: list[dict], # only one, non converted conf
     logger.info(f'START: optuna_based_training.')
 
     # able to automatically stop poor working exps
-    n_startup = 30
+    n_startup = 40
     n_warmup_steps = 25
     interval_steps = 5
 
@@ -684,7 +684,7 @@ def main():
     elif args.mode == 3:
         optuna_based_training(exp_config=exp_configs,
                               model_name=model_name,
-                              n_trials=60)
+                              n_trials=100)
     elif args.mode == 4:
         model_configs_dir = base_path.joinpath('model_configs')
         model_configs_paths_list = list(model_configs_dir.rglob('*.json'))
