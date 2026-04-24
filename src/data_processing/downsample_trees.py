@@ -30,7 +30,7 @@ def decimate_chunk_laz(work_dir: pth.Path, goal_dir: pth.Path, folder_split: dic
     Files are split per source filename to avoid data leakage.
     Files not found in metadata are assigned label 19 ("other").
     """
-    OTHER_LABEL = 18
+    OTHER_LABEL = 15
 
     if not work_dir.exists():
         raise ValueError('Incorrect path:', work_dir)
@@ -297,7 +297,7 @@ def get_metadata(
 
     if len(other_species) > 0:
         other_species['species']        = 'others'
-        other_species['species_number'] = 18
+        other_species['species_number'] = 15
 
     df = pd.concat([specified_species, other_species], ignore_index=True)
     df = df[['treeID', 'species', 'species_number', 'filename']].copy()
