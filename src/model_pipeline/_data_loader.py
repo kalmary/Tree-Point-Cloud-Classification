@@ -167,7 +167,7 @@ class NpyDataset(torch.utils.data.Dataset):
         self.files = sorted(self.path.rglob('*.npy'))
 
         if not return_others:
-            self.files = [f for f in self.files if int(f.stem.rsplit('_', 1)[-1]) != 18] # TODO change if necessary
+            self.files = [f for f in self.files if int(f.stem.rsplit('_', 1)[-1]) != 15] # TODO change if necessary
         else:
             self.files = sorted(self.path.rglob('*.npy'))
  
