@@ -355,8 +355,25 @@ def main():
         'test_ratio':  parser.folder_split[1],
         'val_ratio':   parser.folder_split[2],
     })
+    merge_map = {
+        'Pinus':        ['Pinus_sylvestris'],
+        'Picea_abies':  ['Picea_abies'],
+        'Abies':        ['Abies_alba'],
+        'Larix':        ['Larix_decidua'],
+        'Pseudotsuga':  ['Pseudotsuga_menziesii'],
+        'Quercus':      ['Quercus_petraea', 'Quercus_rubra', 'Quercus_robur'],
+        'Ulmus':        ['Ulmus_laevis'],
+        'Fagus':        ['Fagus_sylvatica'],
+        'Tilia':        ['Tilia_cordata'],
+        'Carpinus':     ['Carpinus_betulus'],
+        'Acer':         ['Acer_pseudoplatanus', 'Acer_campestre'],
+        'Fraxinus':     ['Fraxinus_excelsior'],
+        'Betula':       ['Betula_pendula'],
+        'Corylus':      ['Corylus_avellana'],
+        'Crataegus':    ['Crataegus_monogyna'],
+    }
 
-    metadata, species_counts = get_metadata(metadata_path, species)
+    metadata, species_counts = get_metadata(metadata_path, species, merge_map=merge_map)
 
     
     print(f"Loaded metadata: {len(metadata)} entries, {species_counts.shape[0]} species groups.")
