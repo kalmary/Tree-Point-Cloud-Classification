@@ -162,7 +162,7 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
     loss_v_hist = []
     acc_v_hist = []
 
-    # try:
+    # try: # TODO bring this back
     repeat_pbar = tqdm(range(training_dict['train_repeat']), 
                     desc="Training Repetition", 
                     unit="repeat",
