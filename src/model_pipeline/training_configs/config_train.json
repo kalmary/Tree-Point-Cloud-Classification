@@ -4,7 +4,7 @@
     "data_path_train": "/mnt/DATA_SSD/BRIK/TREE_CLASS/decimated/train",
     "data_path_test": "/mnt/DATA_SSD/BRIK/TREE_CLASS/decimated/test",
     "data_path_val": "/mnt/DATA_SSD/BRIK/TREE_CLASS/decimated/validation",
-    "num_classes": 18,
+    "num_classes": 15,
     "batch_size": [
         20,
         50,
