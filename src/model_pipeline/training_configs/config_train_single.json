@@ -1,23 +1,18 @@
-{   
+{
     "train_repeat": 3,
     "train_repeat_comment": "How many times training is done for the same config, to get average/ best results",
-
     "data_path_train": "/mnt/DATA_SSD/BRIK/TREE_CLASS/decimated/train",
     "data_path_test": "/mnt/DATA_SSD/BRIK/TREE_CLASS/decimated/test",
-    "data_path_val": "/mnt/DATA_SSD/BRIK/TREE_CLASS/decimated/val",
-
+    "data_path_val": "/mnt/DATA_SSD/BRIK/TREE_CLASS/decimated/validation",
     "num_classes": 18,
     "batch_size": 30,
     "epochs": 80,
-
-
-    
     "learning_rate": 0.001,
     "weight_decay": 0.01,
-    "focal_loss_gamma": [2.0],
-
+    "focal_loss_gamma": [
+        2.0
+    ],
     "input_dim": 350,
-
     "scheduler_params_comment": [],
     "pc_start": 0.25,
     "div_factor": 50,
