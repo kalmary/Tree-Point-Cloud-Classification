@@ -184,11 +184,11 @@ class NpyDataset(torch.utils.data.Dataset):
         label = torch.tensor(label).long()
  
         if self.training:
-            cloud = add_gaussian_noise(cloud, std=0.05)
+            cloud = add_gaussian_noise(cloud, std=0.07)
             cloud = transform_points(cloud, device=self.device)
             cloud = rotate_points(cloud, device=self.device)
-            cloud = tilt_points(cloud, max_x_tilt_degrees=10, max_y_tilt_degrees=10, device=self.device)
+            cloud = tilt_points(cloud, max_x_tilt_degrees=15, max_y_tilt_degrees=15, device=self.device)
 
         cloud = cloud2sideViews_torch(cloud, resolution_xy=self.resolution_xy)
- 
+
         return cloud.cpu(), label

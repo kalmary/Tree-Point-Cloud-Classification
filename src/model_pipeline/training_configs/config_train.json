@@ -18,8 +18,8 @@
     ],
     "general_convention_comment": "start, stop, step",
     "learning_rate": [
-        0.01,
-        1e-05,
+        0.001,
+        1e-06,
         0.1
     ],
     "learning_rate_comment": "low_lr, high_lr, factor",
