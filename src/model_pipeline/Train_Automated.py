@@ -531,15 +531,15 @@ def optuna_based_training(exp_config: list[dict], # only one, non converted conf
     def callback(study, trial):
         pbar.update(1)
         try:
+            best_value = study.best_value
+            current = f"{trial.value:.4f}" if trial.value is not None else "Pruned"
             pbar.set_postfix({
                 "Trial": trial.number,
-                "Best Value": f"{study.best_value:.4f}",
-                "Current": f"{trial.value:.4f}" if trial.value else "Pruned"
+                "Best": f"{best_value:.4f}",
+                "Current": current,
             })
         except ValueError:
-            pbar.set_postfix({
-                "Trial was pruned. No results to display"
-            })
+            pbar.set_postfix({"Trial": trial.number, "Status": "Pruned"})
 
     checkpoint = Checkpoint(existing_ok=False)                          
 
