@@ -169,7 +169,6 @@ cython_debug/
 **/training_results/
 **/final_files/
 **/db.sqlite3
-**/model_configs/
 **/model_configs_bin/
 
 

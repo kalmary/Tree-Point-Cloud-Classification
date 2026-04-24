@@ -14,8 +14,6 @@ import torch.multiprocessing as mp
 from torch.utils.data import DataLoader, WeightedRandomSampler
 from torch.optim.lr_scheduler import OneCycleLR
 
-
-from model import CNN2D_Residual
 from model_test import ResNetClassifier
 
 from _data_loader import *
