@@ -163,11 +163,11 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
     acc_v_hist = []
 
     # try:
-        repeat_pbar = tqdm(range(training_dict['train_repeat']), 
-                        desc="Training Repetition", 
-                        unit="repeat",
-                        position=1, 
-                        leave=False) 
+    repeat_pbar = tqdm(range(training_dict['train_repeat']), 
+                    desc="Training Repetition", 
+                    unit="repeat",
+                    position=1, 
+                    leave=False) 
 
     for _ in repeat_pbar:
 
