@@ -15,6 +15,7 @@ from torch.utils.data import DataLoader, WeightedRandomSampler
 from torch.optim.lr_scheduler import OneCycleLR
 
 from model_test import ResNetClassifier
+from model_en import EfficientNetClassifier
 
 from _data_loader import *
 from utils import compute_pos_weights, get_dataset_len, calculate_accuracy, FocalLoss
@@ -132,7 +133,7 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
     total_v = get_dataset_len(valLoader)
 
     try:
-        model = ResNetClassifier(config=training_dict['model_config'], num_classes=training_dict['num_classes']).to(training_dict['device'])
+        model = EfficientNetClassifier(config=training_dict['model_config'], num_classes=training_dict['num_classes']).to(training_dict['device'])
     except Exception as e:
         print(f"Error initializing model: {e}")
         yield None, {}

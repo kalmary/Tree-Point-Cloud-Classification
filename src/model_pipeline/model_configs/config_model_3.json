@@ -1,5 +1,5 @@
 {
-    "model_version": "efficientnet_b4",
+    "model_version": "efficientnet_b3",
     "in_channels": 5,
     "dropout": 0.4
 }

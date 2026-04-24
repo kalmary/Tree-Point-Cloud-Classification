@@ -29,8 +29,8 @@ from _train_single_case import train_model
 from utils import load_json, save2json, save_model, convert_str_values
 from utils import Plotter
 
-from model_pipeline.model import CNN2D_Residual
 from model_pipeline.model_test import ResNetClassifier
+from model_pipeline.model_en import EfficientNetClassifier
 
 
 def check_models(model_configs_paths: list[pth.Path],
@@ -53,7 +53,7 @@ def check_models(model_configs_paths: list[pth.Path],
         model_config = convert_str_values(model_config)
 
         try:
-            model = ResNetClassifier(config=model_config, num_classes=10)
+            model = EfficientNetClassifier(config=model_config, num_classes=10)
             model.eval()
             model_summary = summary(model, input_size=max_input_size, verbose=0)
             estimated_memory_GB = (model_summary.total_param_bytes + model_summary.total_output_bytes) / (1024 ** 3 )

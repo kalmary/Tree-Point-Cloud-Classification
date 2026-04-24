@@ -109,7 +109,7 @@ if __name__ == "__main__":
         "dropout": 0.4
     }
 
-    model = EfficientNetClassifier(config=config, num_classes=18)
+    model = EfficientNetClassifier(config=config, num_classes=15)
 
     batch = torch.randn(2, 5, 350, 350)
     output = model(batch)
@@ -118,5 +118,5 @@ if __name__ == "__main__":
 
     print("\n" + "="*50)
     for version in EfficientNetClassifier.MODEL_REGISTRY:
-        m = EfficientNetClassifier({"model_version": version, "in_channels": 5, "dropout": 0.4}, num_classes=18)
+        m = EfficientNetClassifier({"model_version": version, "in_channels": 5, "dropout": 0.4}, num_classes=15)
         print(f"{version:20s}: {m.get_total_params():,} parameters")
