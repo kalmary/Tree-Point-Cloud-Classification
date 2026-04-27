@@ -3,7 +3,7 @@ import torch.nn as nn
 from torchvision import models
 from pathlib import Path
 import json
-from typing import Union, Dict
+from typing import Union, Dict, Optional
 
 
 class EfficientNetClassifier(nn.Module):
@@ -103,9 +103,14 @@ class EfficientNetClassifier(nn.Module):
     def get_total_params(self):
         return sum(p.numel() for p in self.parameters())
 
-    def forward(self, x):
-        """x: (batch, in_channels, H, W)"""
-        return self.model(x)
+    def forward(self, x, targets: Optional[torch.Tensor] = None):
+        feat = self.model.features(x)
+        feat = self.model.avgpool(feat)
+        feat = feat.flatten(1)
+        logits = self.model.classifier(feat)
+        if targets is None:
+            return logits
+        return logits, feat
 
 def test_model():
     # for version, (model_fn, weights, stored_val) in EfficientNetClassifier.MODEL_REGISTRY.items():

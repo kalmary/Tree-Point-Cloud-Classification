@@ -18,7 +18,7 @@ from model_test import ResNetClassifier
 from model_en import EfficientNetClassifier
 
 from _data_loader import *
-from utils import compute_pos_weights, get_dataset_len, calculate_accuracy, FocalLoss
+from utils import compute_pos_weights, get_dataset_len, calculate_accuracy, FocalLoss, ArcFaceFocalLoss
 from utils import wrap_hist
 
 warning_to_filter = "Attempting to run cuBLAS, but there was no current CUDA context!"
@@ -42,8 +42,8 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
     device_gpu = torch.device('cuda')
     device_cpu = torch.device('cpu')
 
-    device_loader = device_gpu
-    device_loss = device_cpu
+    device_loader = device_cpu
+    device_loss = device_gpu
 
     model_unfreeze_epoch = int(training_dict["epochs"]*training_dict['epoch_freeze_model_percent']/100)
 
@@ -140,8 +140,22 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
         print(f"Error initializing model: {e}")
         yield None, {}
 
-    criterion_t = FocalLoss(alpha= weights_t.to(device_loss), gamma=training_dict['focal_loss_gamma'], smoothing=0.1).to(device_loss) 
-    criterion_v = FocalLoss(alpha= weights_v.to(device_loss), gamma=training_dict['focal_loss_gamma'], smoothing=0.1).to(device_loss)
+
+    alpha = 0.7
+    criterion_f_t = FocalLoss(alpha= weights_t.to(device_loss), gamma=training_dict['focal_loss_gamma'], smoothing=0.1).to(device_loss) 
+    criterion_f_v = FocalLoss(alpha= weights_v.to(device_loss), gamma=training_dict['focal_loss_gamma'], smoothing=0.1).to(device_loss)
+
+    criterion_a_t = ArcFaceFocalLoss(alpha = weights_t.to(device=device_loss),
+                                     gamma=training_dict['focal_loss_gamma'],
+                                     smoothing=0.1, 
+                                     margin=0.25,
+                                     scale=16.)
+    
+    criterion_a_v = ArcFaceFocalLoss(alpha = weights_v.to(device=device_loss),
+                                     gamma=training_dict['focal_loss_gamma'],
+                                     smoothing=0.1, 
+                                     margin=0.25,
+                                     scale=16.)
 
     optimizer = optim.AdamW(model.parameters(), lr = training_dict['learning_rate'], weight_decay=training_dict['weight_decay'])
 
@@ -163,126 +177,135 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
     loss_v_hist = []
     acc_v_hist = []
 
-    try: # TODO bring this back
-        repeat_pbar = tqdm(range(training_dict['train_repeat']), 
-                        desc="Training Repetition", 
-                        unit="repeat",
-                        position=1, 
-                        leave=False) 
+    # try: # TODO bring this back
+    repeat_pbar = tqdm(range(training_dict['train_repeat']), 
+                    desc="Training Repetition", 
+                    unit="repeat",
+                    position=1, 
+                    leave=False) 
 
-        for _ in repeat_pbar:
+    for _ in repeat_pbar:
 
-            epoch_pbar = tqdm(range(training_dict['epochs']), 
-                                desc="Epoch Progress", 
-                                unit="epoch",
-                                position=2, 
+        epoch_pbar = tqdm(range(training_dict['epochs']), 
+                            desc="Epoch Progress", 
+                            unit="epoch",
+                            position=2, 
+                            leave=False)
+
+        for epoch in epoch_pbar:
+
+            epoch_loss_t = 0.
+            epoch_loss_v = 0.
+
+            epoch_accuracy_v = 0.
+
+            epoch_samples_t = 0
+            epoch_samples_v = 0
+
+            if epoch == model_unfreeze_epoch:
+                model.unfreeze_backbone()
+
+            progressbar_t = tqdm(trainLoader, 
+                                desc=f"Epoch training {epoch+1}/ {training_dict['epochs']}", 
+                                total=total_t, 
+                                position=3,
                                 leave=False)
+            
+            for batch_x, batch_y in progressbar_t:
+                model.train(True)
+                batch_x = batch_x.to(training_dict['device'])
+                batch_y = batch_y.to(training_dict['device'])
 
-            for epoch in epoch_pbar:
+                optimizer.zero_grad()
+                outputs, emb = model(batch_x, targets=batch_y)
 
-                epoch_loss_t = 0.
-                epoch_loss_v = 0.
+                outputs = outputs.to(device_loss)
+                emb = emb.to(device_loss)
+                batch_y = batch_y.to(device_loss)
 
-                epoch_accuracy_v = 0.
+                loss_f_t = criterion_f_t(outputs, batch_y)
+                loss_a_t = criterion_a_t(emb, model.model.classifier[1].weight, batch_y)
 
-                epoch_samples_t = 0
-                epoch_samples_v = 0
+                loss_t = alpha* loss_f_t + (1 - alpha) * loss_a_t
 
-                if epoch == model_unfreeze_epoch:
-                    model.unfreeze_backbone()
+                loss_t.backward()
+                optimizer.step()
 
-                progressbar_t = tqdm(trainLoader, 
-                                    desc=f"Epoch training {epoch+1}/ {training_dict['epochs']}", 
-                                    total=total_t, 
-                                    position=3,
-                                    leave=False)
-                
-                for batch_x, batch_y in progressbar_t:
-                    model.train(True)
-                    batch_x = batch_x.to(training_dict['device'])
-
-                    optimizer.zero_grad()
-                    outputs = model(batch_x)
-
-                    outputs = outputs.to(device_loss)
-                    batch_y = batch_y.to(device_loss)
-
-                    loss_t = criterion_t(outputs, batch_y)
-
-                    loss_t.backward()
-                    optimizer.step()
-
-                    try:
-                        scheduler.step()
-                    except Exception:
-                        pass
+                try:
+                    scheduler.step()
+                except Exception:
+                    pass
 
 
-                    current_lr = optimizer.param_groups[0]['lr']
+                current_lr = optimizer.param_groups[0]['lr']
 
-                    epoch_loss_t += loss_t.item() * batch_y.size(0)
+                epoch_loss_t += loss_t.item() * batch_y.size(0)
 
-                    epoch_samples_t += batch_y.size(0)
+                epoch_samples_t += batch_y.size(0)
 
-                    avg_loss_t = epoch_loss_t / epoch_samples_t
-
-
-                    progressbar_t.set_postfix({
-                        "Loss_train": f"{avg_loss_t:.6f}",
-
-                        "learning_rate": f"{current_lr:.10f}"
-                    })
-
-                loss_hist.append(avg_loss_t)
-                acc_hist.append(-1.)
-
-                progressbar_v = tqdm(valLoader, desc=f"Epoch validation {epoch + 1}/ {training_dict['epochs']}", total=total_v, position=3, leave=False)
-                model.eval()
-                with torch.no_grad():
-                    for batch_x, batch_y in progressbar_v:
-                        
-                        batch_x = batch_x.to(training_dict['device'])
-                        outputs = model(batch_x)
-
-                        outputs = outputs.to(device_loss)
-                        batch_y = batch_y.to(device_loss)
+                avg_loss_t = epoch_loss_t / epoch_samples_t
 
 
-                        loss_v = criterion_v(outputs, batch_y)
-
-                        accuracy_v = calculate_accuracy(outputs.cpu(), 
-                                                                batch_y.cpu())
-
-                        epoch_loss_v += loss_v.item() * batch_y.size(0)
-                        epoch_accuracy_v += accuracy_v * batch_y.size(0)
-                        epoch_samples_v += batch_y.size(0)
-
-                        avg_loss_v = epoch_loss_v / epoch_samples_v
-                        avg_accuracy_v = epoch_accuracy_v / epoch_samples_v
-
-                        progressbar_v.set_postfix({
-                            "Loss_val": f"{avg_loss_v:.6f}",
-                            "Acc_val": f"{avg_accuracy_v:.6f}"
-                        })
-
-                loss_v_hist.append(avg_loss_v)
-                acc_v_hist.append(avg_accuracy_v)
-
-
-                hist_dict = wrap_hist(acc_hist = acc_hist, loss_hist = loss_hist, acc_hist_val = acc_v_hist, loss_hist_val = loss_v_hist)
-
-                yield model, hist_dict
-
-
-                epoch_pbar.set_postfix({
-                    "Epoch": epoch + 1,
+                progressbar_t.set_postfix({
                     "Loss_train": f"{avg_loss_t:.6f}",
-                    # "Acc_train": f"{avg_accuracy_t:.6f}",
-                    "Loss_val": f"{avg_loss_v:.6f}",
-                    "Acc_val": f"{avg_accuracy_v:.6f}",
-                    "learning_rate_max": f"{training_dict['learning_rate']:.10f}"
+
+                    "learning_rate": f"{current_lr:.10f}"
                 })
 
-    except Exception as e:
-        print(f"Error during training: {e}")
-        yield None, {}
+            loss_hist.append(avg_loss_t)
+            acc_hist.append(-1.)
+
+            progressbar_v = tqdm(valLoader, desc=f"Epoch validation {epoch + 1}/ {training_dict['epochs']}", total=total_v, position=3, leave=False)
+            model.eval()
+            with torch.no_grad():
+                for batch_x, batch_y in progressbar_v:
+                    
+                    batch_x = batch_x.to(training_dict['device'])
+                    batch_y = batch_y.to(training_dict['device'])
+                    outputs, emb = model(batch_x, batch_y)
+
+                    outputs = outputs.to(device_loss)
+                    emb = emb.to(device_loss)
+                    batch_y = batch_y.to(device_loss)
+
+
+                    loss_f_v = criterion_f_v(outputs, batch_y)
+                    loss_a_v = criterion_a_v(emb, model.model.classifier[1].weight, batch_y)
+                    loss_v = alpha* loss_f_v + (1 - alpha) * loss_a_v
+
+                    accuracy_v = calculate_accuracy(outputs.cpu(), 
+                                                            batch_y.cpu())
+
+                    epoch_loss_v += loss_v.item() * batch_y.size(0)
+                    epoch_accuracy_v += accuracy_v * batch_y.size(0)
+                    epoch_samples_v += batch_y.size(0)
+
+                    avg_loss_v = epoch_loss_v / epoch_samples_v
+                    avg_accuracy_v = epoch_accuracy_v / epoch_samples_v
+
+                    progressbar_v.set_postfix({
+                        "Loss_val": f"{avg_loss_v:.6f}",
+                        "Acc_val": f"{avg_accuracy_v:.6f}"
+                    })
+
+            loss_v_hist.append(avg_loss_v)
+            acc_v_hist.append(avg_accuracy_v)
+
+
+            hist_dict = wrap_hist(acc_hist = acc_hist, loss_hist = loss_hist, acc_hist_val = acc_v_hist, loss_hist_val = loss_v_hist)
+
+            yield model, hist_dict
+
+
+            epoch_pbar.set_postfix({
+                "Epoch": epoch + 1,
+                "Loss_train": f"{avg_loss_t:.6f}",
+                # "Acc_train": f"{avg_accuracy_t:.6f}",
+                "Loss_val": f"{avg_loss_v:.6f}",
+                "Acc_val": f"{avg_accuracy_v:.6f}",
+                "learning_rate_max": f"{training_dict['learning_rate']:.10f}"
+            })
+
+    # except Exception as e:
+    #     print(f"Error during training: {e}")
+    #     yield None, {}
