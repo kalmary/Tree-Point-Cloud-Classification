@@ -1,4 +1,5 @@
 import requests
+import math
 
 SPECIES = {
     0:  ["BRZ",  "Betula_pendula",         "Brzoza brodawkowata"],
@@ -60,14 +61,22 @@ class BDLCall():
 
         return RDLP_dict.get(feats[0]["properties"]["region_name"])
 
-    def find_species(self, lat:float, lon:float, input_key: int):
+    def bbox_meters(self, lon: float, lat: float, size_m: int):
+        half = size_m / 2
+        dlat = half / 111_320
+        dlon = half / 111_320 * math.cos(math.radians(lat))
+        bbox = f"{lon-dlon},{lat-dlat},{lon+dlon},{lat+dlat}"
+        return bbox
+
+    def find_species(self, lat: float, lon: float, size_m: int = 300):
 
         collection = self.get_rdlp_collection(lat, lon)
-        print(collection)
+        bbox  = self.bbox_meters(lon, lat, size_m)
+
 
 
 
 
 
 BDL = BDLCall()
-BDL.find_species(53.6472, 22.4552, 3)
+BDL.find_species(53.6472, 22.4552)
