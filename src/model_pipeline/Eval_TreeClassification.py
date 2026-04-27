@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader
 
 from _data_loader import *
 from model_pipeline.model import CNN2D_Residual
+from model_pipeline.model_en import EfficientNetClassifier
 
 current_dir = pth.Path(__file__).parent.parent
 sys.path.append(str(current_dir.parent))
@@ -22,36 +23,50 @@ from utils import load_json, load_model, convert_str_values
 from utils import calculate_accuracy, get_intLabels, get_Probabilities,get_dataset_len, compute_pos_weights, FocalLoss
 from utils import Plotter, ClassificationReport
 
+OTHERS = False
 
 def _eval_model(config_dict: dict,
                model: nn.Module) -> tuple[list, list, np.ndarray, np.ndarray, np.ndarray]:
-
-    test_dataset = Dataset(path_dir = config_dict['data_path_val'],
-                                resolution_xy=config_dict['input_dim'],
-                                num_classes=config_dict['num_classes'],
-                                batch_size = config_dict['batch_size'],
-                                shuffle = False,
-                                device = torch.device('cpu'))
     
-    testLoader = DataLoader(test_dataset,
-                             batch_size=None,
-                             num_workers = 15,
-                             pin_memory=True)
+    device_gpu = torch.device('cuda')
+    device_cpu = torch.device('cpu')
+
+    device_loader = device_gpu
+    device_loss = device_gpu
+
+    num_classes = config_dict['num_classes']
+    ignore_index = 15
+    thresholds = torch.tensor([0.5] * num_classes) if OTHERS else None
+
+    test_dataset = NpyDataset(path_dir=config_dict['data_path_test'],
+                            resolution_xy=config_dict['input_dim'],
+                            training=False,
+                            return_others=OTHERS,
+                            device=device_loader)
+    
+    testLoader = DataLoader(
+        test_dataset,
+        batch_size=config_dict["batch_size"],
+        num_workers=15,
+        pin_memory=True,          # faster CPU->GPU transfers
+        persistent_workers=False,  # keep workers alive between epochs
+        prefetch_factor=2,
+    )
 
     total = get_dataset_len(testLoader, verbose=False)
     weights, _ = compute_pos_weights(data_dir=config_dict['data_path_train'],
-                                    num_classes=config_dict["num_classes"],
+                                    num_classes=num_classes,
                                     power=0.35,
-                                    ignore_index=15)
+                                    ignore_index=ignore_index)
 
-    criterion = FocalLoss(alpha= weights.cpu(), gamma=config_dict['focal_loss_gamma']).cpu()
+    criterion = FocalLoss(alpha=weights.cpu(), gamma=config_dict['focal_loss_gamma']).cpu()
 
     loss_per_epoch = 0.
     accuracy_per_epoch = 0.0
     epoch_samples = 0
 
     all_predictions = []
-    all_probs = np.zeros((0, config_dict['num_classes']))
+    all_probs = np.zeros((0, num_classes + (1 if OTHERS else 0)))
     all_labels = []
 
     pbar = tqdm(testLoader, total=total, desc="Testing", unit="batch")
@@ -62,29 +77,47 @@ def _eval_model(config_dict: dict,
             batch_x = batch_x.to(config_dict['device'])
 
             outputs = model(batch_x)
-            loss = criterion(outputs.cpu(), batch_y.cpu())
 
-            accuracy= calculate_accuracy(outputs.cpu(), batch_y.cpu())
+            # loss & accuracy: ignore class 15 (others) only when others=True
+            if OTHERS:
+                mask = batch_y != ignore_index
+                if mask.any():
+                    loss = criterion(outputs.cpu()[mask], batch_y.cpu()[mask])
+                    accuracy = calculate_accuracy(outputs.cpu()[mask], batch_y.cpu()[mask])
+                    loss_per_epoch += loss.item() * mask.sum().item()
+                    accuracy_per_epoch += accuracy * mask.sum().item()
+                    epoch_samples += mask.sum().item()
+            else:
+                loss = criterion(outputs.cpu(), batch_y.cpu())
+                accuracy = calculate_accuracy(outputs.cpu(), batch_y.cpu())
+                loss_per_epoch += loss.item() * batch_y.size(0)
+                accuracy_per_epoch += accuracy * batch_y.size(0)
+                epoch_samples += batch_y.size(0)
 
-            loss_per_epoch += loss.item()*batch_y.size(0)
-            accuracy_per_epoch += accuracy * batch_y.size(0)
+            total_loss = loss_per_epoch / epoch_samples if epoch_samples > 0 else 0.
+            total_accuracy = accuracy_per_epoch / epoch_samples if epoch_samples > 0 else 0.
 
-            epoch_samples += batch_y.size(0)
-
-            total_loss = loss_per_epoch / epoch_samples
-            total_accuracy = accuracy_per_epoch / epoch_samples
-
-
+            # collect all samples (including class 15) for final metrics
             all_labels.extend(batch_y.cpu().tolist())
 
             probs = get_Probabilities(outputs.cpu())
             int_preds = get_intLabels(probs)
 
-            probs = probs.numpy()
-            int_preds = int_preds.numpy()
+            if OTHERS:
+                max_probs, max_classes = probs.max(dim=1)
+                below_threshold = max_probs < thresholds[max_classes]
+                int_preds[below_threshold] = ignore_index
 
-            all_probs = np.concatenate([all_probs, probs.reshape(-1, config_dict['num_classes'])], axis=0)
-            all_predictions.extend(int_preds)
+            probs_np = probs.numpy()
+            int_preds_np = int_preds.numpy()
+
+            if OTHERS:
+                # append a column for class 15: 1 where predicted as others, 0 elsewhere
+                others_col = (int_preds_np == ignore_index).astype(np.float32).reshape(-1, 1)
+                probs_np = np.concatenate([probs_np, others_col], axis=1)
+
+            all_probs = np.concatenate([all_probs, probs_np.reshape(-1, num_classes + (1 if OTHERS else 0))], axis=0)
+            all_predictions.extend(int_preds_np)
 
     return total_loss, total_accuracy, np.asarray(all_labels), all_probs, np.asarray(all_predictions)
 
@@ -106,11 +139,12 @@ def eval_model_front(config_dict: dict,
     print('Plots saved to:', plot_dir)
     print('='*20)
     
-    plotter = Plotter(class_num=config_dict['num_classes'], plots_dir=plot_dir)
+    plotter = Plotter(class_num=config_dict['num_classes'] + (1 if OTHERS else 0), plots_dir=plot_dir)
     
     plotter.roc_curve(f'roc_{model_name}.png', all_labels, all_probs)
     plotter.prc_curve(f'prc_{model_name}.png', all_labels, all_probs)
     plotter.cnf_matrix(f'cnf_{model_name}.png', all_labels, all_predictions)
+    plotter.threshold_hist(f'threshold_hist_{model_name}.pdf', all_probs)
 
     ClassificationReport(file_path=plot_dir.joinpath(f'classification_report_{model_name}.txt'),
                         pred=all_predictions,
@@ -119,16 +153,25 @@ def eval_model_front(config_dict: dict,
 def test_function(config_dict: dict,
                 model):
     
-    test_dataset = Dataset(path_dir = config_dict['data_path_val'],
-                                resolution_xy=config_dict['input_dim'],
-                                batch_size = config_dict['batch_size'],
-                                shuffle = False,
-                                device = torch.device('cpu'))
+    device_gpu = torch.device('cuda')
+    device_cpu = torch.device('cpu')
+
+    device_loader = device_gpu
+    device_loss = device_gpu
     
-    testLoader = DataLoader(test_dataset,
-                            batch_size=None,
-                            num_workers = 15,
-                            pin_memory=True)
+    test_dataset = NpyDataset(path_dir=config_dict['data_path_test'],
+                            resolution_xy=config_dict['input_dim'],
+                            training=False,
+                            device=device_loader)
+    
+    testLoader = DataLoader(
+        test_dataset,
+        batch_size=config_dict["batch_size"],
+        num_workers=15,
+        pin_memory=True,          # faster CPU->GPU transfers
+        persistent_workers=False,  # keep workers alive between epochs
+        prefetch_factor=2,
+    )
     
     batch_x, _ = next(iter(testLoader))
     batch_x = batch_x.to(config_dict['device'])
@@ -207,7 +250,7 @@ def main():
     config_dict = convert_str_values(config_dict)
     config_dict['device'] = device
     
-    model = CNN2D_Residual(config_data=config_dict['model_config'],
+    model = EfficientNetClassifier(config=config_dict['model_config'],
                             num_classes=config_dict['num_classes'])
     
     model = load_model(file_path=model_dir.joinpath(f'{model_name}.pt'),
@@ -226,6 +269,7 @@ def main():
 
 
 if __name__ == '__main__':
+    torch.multiprocessing.set_start_method('spawn')
     main()
 
 

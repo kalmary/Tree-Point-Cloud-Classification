@@ -54,15 +54,12 @@ class EfficientNetClassifier(nn.Module):
         self.model = model_fn(weights=weights)
 
     def _modify_input_layer(self):
-        """Replace first conv to accept in_channels, transferring pretrained weights by averaging."""
         old_conv = self.model.features[0][0]
 
         if old_conv.in_channels == self.in_channels:
             return
 
-        # Average pretrained RGB weights across the new channel count
-        old_w = old_conv.weight.data                                              # (C_out, 3, kH, kW)
-        new_w = old_w.mean(dim=1, keepdim=True).repeat(1, self.in_channels, 1, 1) # (C_out, in_channels, kH, kW)
+        old_w = old_conv.weight.data  # (C_out, 3, kH, kW)
 
         new_conv = nn.Conv2d(
             self.in_channels,
@@ -72,7 +69,8 @@ class EfficientNetClassifier(nn.Module):
             padding=old_conv.padding,
             bias=False
         )
-        new_conv.weight.data = new_w
+        nn.init.kaiming_normal_(new_conv.weight, mode='fan_out', nonlinearity='relu')
+        new_conv.weight.data[:, :3, :, :] = old_w
         self.model.features[0][0] = new_conv
 
     def _replace_classifier(self):
@@ -83,6 +81,14 @@ class EfficientNetClassifier(nn.Module):
             nn.Dropout(p=self.dropout),
             nn.Linear(in_features, self.num_classes)
         )
+
+    def freeze_backbone(self):
+        for param in self.model.features.parameters():
+            param.requires_grad = False
+
+    def unfreeze_backbone(self):
+        for param in self.model.features.parameters():
+            param.requires_grad = True
 
     @classmethod
     def from_config_file(cls, config_path: Union[str, Path], num_classes: int = 18):
@@ -101,8 +107,12 @@ class EfficientNetClassifier(nn.Module):
         """x: (batch, in_channels, H, W)"""
         return self.model(x)
 
+def test_model():
+    # for version, (model_fn, weights, stored_val) in EfficientNetClassifier.MODEL_REGISTRY.items():
+    #     m = model_fn(weights=None)
+    #     actual = m.classifier[1].in_features
+    #     print(f"{version}: stored={stored_val}, actual={actual}, match={stored_val == actual}")
 
-if __name__ == "__main__":
     config = {
         "model_version": "efficientnet_b2",
         "in_channels": 5,
@@ -120,3 +130,6 @@ if __name__ == "__main__":
     for version in EfficientNetClassifier.MODEL_REGISTRY:
         m = EfficientNetClassifier({"model_version": version, "in_channels": 5, "dropout": 0.4}, num_classes=15)
         print(f"{version:20s}: {m.get_total_params():,} parameters")
+
+if __name__ == "__main__":
+    test_model()

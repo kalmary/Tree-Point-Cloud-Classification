@@ -42,9 +42,10 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
     device_gpu = torch.device('cuda')
     device_cpu = torch.device('cpu')
 
-    device_loader = device_cpu
-    device_loss = device_gpu
+    device_loader = device_gpu
+    device_loss = device_cpu
 
+    model_unfreeze_epoch = int(training_dict["epochs"]*training_dict['epoch_freeze_model_percent']/100)
 
     # train_dataset = Dataset(path_dir = training_dict['data_path_train'],
     #                              resolution_xy = training_dict['input_dim'],
@@ -86,7 +87,7 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
         batch_size=training_dict["batch_size"],
         shuffle=True,
         num_workers=num_workers,
-        pin_memory=False,          # faster CPU->GPU transfers
+        pin_memory=True,          # faster CPU->GPU transfers
         persistent_workers=False,  # keep workers alive between epochs
         prefetch_factor=2,
     )
@@ -95,51 +96,52 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
         val_dataset,
         batch_size=training_dict["batch_size"],
         num_workers=num_workers,
-        pin_memory=False,          # faster CPU->GPU transfers
+        pin_memory=True,          # faster CPU->GPU transfers
         persistent_workers=False,  # keep workers alive between epochs
         prefetch_factor=2,
     )
 
 
-    weights_t, _ = compute_pos_weights(data_dir=training_dict['data_path_train'],
+    weights_t, labels = compute_pos_weights(data_dir=training_dict['data_path_train'],
                                     num_classes=training_dict["num_classes"],
                                     power=0.35,
                                     ignore_index=15)
     
-    # weights_t_samples = weights_t[labels]
+    weights_t_samples = weights_t[labels]
 
     weights_v, _ = compute_pos_weights(data_dir=training_dict['data_path_val'],
                                     num_classes=training_dict["num_classes"],
                                     power=0.35,
                                     ignore_index=15)
 
-    # sampler_t = WeightedRandomSampler(
-    #     weights=weights_t_samples,
-    #     num_samples=len(weights_t_samples),
-    #     replacement=True
-    # )
+    sampler_t = WeightedRandomSampler(
+        weights=weights_t_samples,
+        num_samples=len(weights_t_samples),
+        replacement=True
+    )
 
-    # trainLoader = DataLoader(
-    #     train_dataset,
-    #     batch_size=training_dict["batch_size"],
-    #     sampler=sampler_t,          # mutually exclusive with shuffle=True
-    #     num_workers=num_workers,
-    #     pin_memory=True,          # faster CPU->GPU transfers
-    #     persistent_workers=False,  # keep workers alive between epochs
-    #     prefetch_factor=2,
-    # )
+    trainLoader = DataLoader(
+        train_dataset,
+        batch_size=training_dict["batch_size"],
+        sampler=sampler_t,          # mutually exclusive with shuffle=True
+        num_workers=num_workers,
+        pin_memory=True,          # faster CPU->GPU transfers
+        persistent_workers=False,  # keep workers alive between epochs
+        prefetch_factor=2,
+    )
 
     total_t = get_dataset_len(trainLoader)
     total_v = get_dataset_len(valLoader)
 
     try:
         model = EfficientNetClassifier(config=training_dict['model_config'], num_classes=training_dict['num_classes']).to(training_dict['device'])
+        model.freeze_backbone()
     except Exception as e:
         print(f"Error initializing model: {e}")
         yield None, {}
 
-    criterion_t = FocalLoss(alpha= weights_t.to(device_loss), gamma=training_dict['focal_loss_gamma']).to(device_loss) 
-    criterion_v = FocalLoss(alpha= weights_v.to(device_loss), gamma=training_dict['focal_loss_gamma']).to(device_loss)
+    criterion_t = FocalLoss(alpha= weights_t.to(device_loss), gamma=training_dict['focal_loss_gamma'], smoothing=0.1).to(device_loss) 
+    criterion_v = FocalLoss(alpha= weights_v.to(device_loss), gamma=training_dict['focal_loss_gamma'], smoothing=0.1).to(device_loss)
 
     optimizer = optim.AdamW(model.parameters(), lr = training_dict['learning_rate'], weight_decay=training_dict['weight_decay'])
 
@@ -174,7 +176,7 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
                                 desc="Epoch Progress", 
                                 unit="epoch",
                                 position=2, 
-                                leave=False) 
+                                leave=False)
 
             for epoch in epoch_pbar:
 
@@ -186,6 +188,8 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
                 epoch_samples_t = 0
                 epoch_samples_v = 0
 
+                if epoch == model_unfreeze_epoch:
+                    model.unfreeze_backbone()
 
                 progressbar_t = tqdm(trainLoader, 
                                     desc=f"Epoch training {epoch+1}/ {training_dict['epochs']}", 

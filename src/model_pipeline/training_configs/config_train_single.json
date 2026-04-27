@@ -16,5 +16,6 @@
     "scheduler_params_comment": [],
     "pc_start": 0.25,
     "div_factor": 50,
-    "final_div_factor": 1000
+    "final_div_factor": 1000,
+    "epoch_unfreeze_model_percent": 20
 }

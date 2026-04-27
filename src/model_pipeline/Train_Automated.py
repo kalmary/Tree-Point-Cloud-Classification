@@ -43,7 +43,7 @@ def check_models(model_configs_paths: list[pth.Path],
     Return list of model configs that compile.
     """
 
-    # str paths to pth.Path if neccessary
+    # str paths to pth.Path if necessary
     model_configs_paths = [pth.Path(config) for config in model_configs_paths]
 
     # check each model if it compiles and take not more than max memory
@@ -425,6 +425,7 @@ def objective_function(trial: optuna.Trial,
     pc_start = trial.suggest_float('pc_start', exp_config['pc_start'][0], exp_config['pc_start'][1], step=exp_config['pc_start'][2])
     div_factor = trial.suggest_int('div_factor', exp_config['div_factor'][0], exp_config['div_factor'][1], log=True)
     fin_div_factor = trial.suggest_int('final_div_factor', exp_config['final_div_factor'][0], exp_config['final_div_factor'][1], log=True)
+    epoch_freeze_model_percent = trial.suggest_categorical("epoch_unfreeze_model_percent", get_step_list(exp_config['epoch_unfreeze_model_percent']))
 
     model_config['num_classes'] = exp_config['num_classes']
 
@@ -439,7 +440,8 @@ def objective_function(trial: optuna.Trial,
         'pc_start': pc_start,
         'div_factor': div_factor,
         'final_div_factor': fin_div_factor,
-        'train_repeat':1
+        'train_repeat':1,
+        'epoch_freeze_model_percent': epoch_freeze_model_percent
     })
 
     logger.info(f'Generated exp_config for trial: {trial.number}')
@@ -694,5 +696,5 @@ def main():
         
 
 if __name__ == '__main__':
-    
+    torch.multiprocessing.set_start_method('spawn')
     main()  
