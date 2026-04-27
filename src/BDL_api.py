@@ -4,7 +4,7 @@ from collections import Counter
 
 SPECIES = {
     0:  ["BRZ",  "Betula_pendula",         "Brzoza brodawkowata"],
-    1:  ["BK",   "Fagus_sylvatica",        "Buk zwyczajny"],
+    1:  ["BK",   "Fagus_sylvatica",        "Buk zwyczajny"], # dodaj niesprecyzowane przypadki np. DB
     2:  ["DB.B", "Quercus_petraea",        "Dąb bezszypułkowy"],
     3:  ["DB.C", "Quercus_rubra",          "Dąb czerwony"],
     4:  ["DB.S", "Quercus_robur",          "Dąb szypułkowy"],
@@ -50,7 +50,7 @@ RDLP_TO_COLLECTION = {
 
 class BDLCall():
 
-    def __init__(self, species:dict = SPECIES):
+    def __init__(self, species:dict = SPECIES): # dodaj flage model_based - opis jak niżej
         self.session = requests.Session()
         self.base = "https://ogcapi.bdl.lasy.gov.pl"
 
@@ -88,8 +88,23 @@ class BDLCall():
             url, params = nxt, None
         return feats
 
-    def find_species(self, lat: float, lon: float, size_m: int = 300):
+    def find_species(self, lat: float, lon: float, size_m: int = 300): 
+        # size_m powinno być w init
+        # w find_species powinna być klasa podana jako int
+        # int zwrócony przez model -> 
+        # -> szukasz obszaru na którym jest dane drzewo 
+        # -> patrzysz jakie drzewa występują na tym terenie
+        # -> robisz dopasowanie:
+        # --> jeśli masz model zwrócił np. klon: szukasz jakie klony występują na tym obszarze i zwracasz najczęstszy gatunek klona
+        # --> jeśli na tym obszarze nie ma np. klonu a model go zwrócił działasz zależnie od flagi: 
+        # ---> model_based: bool = True: zwracasz klon (ten który w Polsce jest częstszy, dokładana nazwa)
+        # ---> model_based: bool = False: zwracasz najczęstszy gatunek z obszaru
+        # --> jeśli model zwrócił others 15: zwracasz najczęstsze drzewo z obszaru
+        # --> jeśli model zwrócił others 15, ale nie masz danych o obszarze: zwracasz others
+        # --> tak samo jak others działa błędna segmentacja
+        #
 
+        
         collection = self.get_rdlp_collection(lat, lon)
         bbox  = self.bbox_meters(lon, lat, size_m)
         feats = self.fetch_all(collection, bbox)
