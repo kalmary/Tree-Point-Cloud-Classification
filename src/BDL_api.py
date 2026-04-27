@@ -1,5 +1,6 @@
 import requests
 import math
+from collections import Counter
 
 SPECIES = {
     0:  ["BRZ",  "Betula_pendula",         "Brzoza brodawkowata"],
@@ -64,19 +65,47 @@ class BDLCall():
     def bbox_meters(self, lon: float, lat: float, size_m: int):
         half = size_m / 2
         dlat = half / 111_320
-        dlon = half / 111_320 * math.cos(math.radians(lat))
+        dlon = half / (111_320 * math.cos(math.radians(lat))) 
         bbox = f"{lon-dlon},{lat-dlat},{lon+dlon},{lat+dlat}"
         return bbox
+    
+    def fetch(self, url, params=None):
+        r = self.session.get(url, params=params, timeout=60)
+        r.raise_for_status()
+        return r.json()
+    
+    def fetch_all(self, collection, bbox):
+        feats = []
+        url = f"{self.base}/collections/{collection}/items"
+        params = {"bbox": bbox, "limit": 1000, "f": "json"}
+        while url:
+            data = self.fetch(url, params)
+            feats.extend(data.get("features", []))
+            nxt = next(
+                (l["href"] for l in data.get("links", []) if l.get("rel") == "next"),
+                None,
+            )
+            url, params = nxt, None
+        return feats
 
     def find_species(self, lat: float, lon: float, size_m: int = 300):
 
         collection = self.get_rdlp_collection(lat, lon)
         bbox  = self.bbox_meters(lon, lat, size_m)
-
+        feats = self.fetch_all(collection, bbox)
+        count_totals = Counter()
+        for f in feats:
+            p = f["properties"]
+            sp = p.get("species_cd")
+            if not sp:
+                continue
+            count_totals[sp] += 1
+        
+        print(count_totals)
 
 
 
 
 
 BDL = BDLCall()
-BDL.find_species(53.6472, 22.4552)
+BDL.find_species(53.6700, 22.6000, 300)
