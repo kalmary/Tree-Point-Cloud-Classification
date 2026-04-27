@@ -19,7 +19,7 @@ current_dir = pth.Path(__file__).parent.parent
 sys.path.append(str(current_dir.parent))
 
 from utils import load_json, load_model, convert_str_values
-from utils import calculate_weighted_accuracy, get_intLabels, get_Probabilities,get_dataset_len, calculate_class_weights, FocalLoss
+from utils import calculate_accuracy, get_intLabels, get_Probabilities,get_dataset_len, compute_pos_weights, FocalLoss
 from utils import Plotter, ClassificationReport
 
 
@@ -39,9 +39,10 @@ def _eval_model(config_dict: dict,
                              pin_memory=True)
 
     total = get_dataset_len(testLoader, verbose=False)
-    weights = calculate_class_weights(testLoader, 
-                                      config_dict['num_classes'], 
-                                      verbose=False)
+    weights, _ = compute_pos_weights(data_dir=config_dict['data_path_train'],
+                                    num_classes=config_dict["num_classes"],
+                                    power=0.35,
+                                    ignore_index=15)
 
     criterion = FocalLoss(alpha= weights.cpu(), gamma=config_dict['focal_loss_gamma']).cpu()
 
@@ -63,7 +64,7 @@ def _eval_model(config_dict: dict,
             outputs = model(batch_x)
             loss = criterion(outputs.cpu(), batch_y.cpu())
 
-            accuracy= calculate_weighted_accuracy(outputs.cpu(), batch_y.cpu(), weights=weights)
+            accuracy= calculate_accuracy(outputs.cpu(), batch_y.cpu())
 
             loss_per_epoch += loss.item()*batch_y.size(0)
             accuracy_per_epoch += accuracy * batch_y.size(0)
