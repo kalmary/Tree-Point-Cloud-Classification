@@ -53,11 +53,21 @@ class BDLCall():
         self.base = "https://ogcapi.bdl.lasy.gov.pl"
 
 
-    def get_rdlp_collection(self, lat:float, lon:float):
+    def get_rdlp_collection(self, lat: float, lon: float, RDLP_dict: dict = RDLP_TO_COLLECTION):
         url = "https://ogcapi.bdl.lasy.gov.pl/collections/rdlp/items"
         params = {"bbox": f"{lon},{lat},{lon},{lat}", "f": "json"}
         feats = self.session.get(url, params=params, timeout=60).json().get("features", [])
-        return RDLP_TO_COLLECTION.get(feats)
+
+        return RDLP_dict.get(feats[0]["properties"]["region_name"])
 
     def find_species(self, lat:float, lon:float, input_key: int):
 
+        collection = self.get_rdlp_collection(lat, lon)
+        print(collection)
+
+
+
+
+
+BDL = BDLCall()
+BDL.find_species(53.6472, 22.4552, 3)
