@@ -2,7 +2,27 @@ import requests
 import math
 from collections import Counter
 
-SPECIES = {
+SPECIES_MODEL = {
+    0: ['Pinus', 'sosna'],
+    1: ['Picea', 'świerk'],
+    2: ['Abies', 'jodła'],
+    3: ['Larix', 'modrzew'],
+    4: ['Pseudotsuga', 'daglezja'],
+    5: ['Quercus', 'dąb'],
+    6: ['Ulmus', 'wiąz'],
+    7: ['Fagus', 'buk'],
+    8: ['Tilia', 'lipa'],
+    9: ['Carpinus', 'grab'],
+    10: ['Acer', 'klon'],
+    11: ['Fraxinus', 'jesion'],
+    12: ['Betula', 'brzoza'],
+    13: ['Corylus', 'leszczyna'],
+    14: ['Crataegus', 'głóg'],
+    15: ['Others', 'Inne'],
+    16: ['Incorrect segmentation', 'Błędna segmentacja']
+}    
+
+SPECIES_DBL = {
     0:  ["BRZ",  "Betula_pendula",         "Brzoza brodawkowata"],
     1:  ["BK",   "Fagus_sylvatica",        "Buk zwyczajny"], # dodaj niesprecyzowane przypadki np. DB
     2:  ["DB.B", "Quercus_petraea",        "Dąb bezszypułkowy"],
@@ -24,8 +44,7 @@ SPECIES = {
     18: ["TP",   "Populus_alba",           "Topola biała"],
     19: ["TP.C", "Populus_nigra",          "Topola czarna"],
     20: ["OS",   "Populus_tremula",        "Topola osika"],
-    21: ["Other",                  "Inne"],
-    22: ["Incorrect segmentation", "Błędna segmentacja"],
+    21: ["DB",   "Quercus species",        "Dąb nieokreślony"]
 }
 
 RDLP_TO_COLLECTION = {
@@ -50,9 +69,14 @@ RDLP_TO_COLLECTION = {
 
 class BDLCall():
 
-    def __init__(self, species:dict = SPECIES): # dodaj flage model_based - opis jak niżej
+    def __init__(self, species_dbl: dict = SPECIES_DBL, species_model: dict = SPECIES_MODEL,  size_m: int = 300, model_based: bool = True): # dodaj flage model_based - opis jak niżej
         self.session = requests.Session()
         self.base = "https://ogcapi.bdl.lasy.gov.pl"
+        self.species_dbl = species_dbl
+        self.species_model = species_model
+        self.size_m = size_m
+        self.model_based = model_based
+
 
 
     def get_rdlp_collection(self, lat: float, lon: float, RDLP_dict: dict = RDLP_TO_COLLECTION):
@@ -88,7 +112,7 @@ class BDLCall():
             url, params = nxt, None
         return feats
 
-    def find_species(self, lat: float, lon: float, size_m: int = 300): 
+    def find_species(self, lat: float, lon: float): 
         # size_m powinno być w init
         # w find_species powinna być klasa podana jako int
         # int zwrócony przez model -> 
@@ -106,7 +130,7 @@ class BDLCall():
 
         
         collection = self.get_rdlp_collection(lat, lon)
-        bbox  = self.bbox_meters(lon, lat, size_m)
+        bbox  = self.bbox_meters(lon, lat, self.size_m)
         feats = self.fetch_all(collection, bbox)
         count_totals = Counter()
         for f in feats:
@@ -123,4 +147,4 @@ class BDLCall():
 
 
 BDL = BDLCall()
-BDL.find_species(53.6700, 22.6000, 300)
+BDL.find_species(53.588330,22.515171)
