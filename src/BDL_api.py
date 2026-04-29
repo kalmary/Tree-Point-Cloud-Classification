@@ -23,28 +23,29 @@ SPECIES_MODEL = {
 }    
 
 SPECIES_DBL = {
-    0:  ["BRZ",  "Betula_pendula",         "Brzoza brodawkowata"],
-    1:  ["BK",   "Fagus_sylvatica",        "Buk zwyczajny"], # dodaj niesprecyzowane przypadki np. DB
-    2:  ["DB.B", "Quercus_petraea",        "Dąb bezszypułkowy"],
-    3:  ["DB.C", "Quercus_rubra",          "Dąb czerwony"],
-    4:  ["DB.S", "Quercus_robur",          "Dąb szypułkowy"],
-    5:  ["GB",   "Carpinus_betulus",       "Grab pospolity"],
-    6:  ["JS",   "Fraxinus_excelsior",     "Jesion wyniosły"],
-    7:  ["JW",   "Acer_pseudoplatanus",    "Klon jawor"],
-    8:  ["KL.P", "Acer_campestre",         "Klon polny"],
-    9:  ["LP",   "Tilia_cordata",          "Lipa drobnolistna"],
-    10: ["WZ.S", "Ulmus_laevis",           "Wiąz szypułkowy"],
-    11: ["GŁG",  "Crataegus_monogyna",     "Głóg jednoszyjkowy"],
-    12: ["LSZ",  "Corylus_avellana",       "Leszczyna pospolita"],
-    13: ["DG",   "Pseudotsuga_menziesii",  "Daglezja zielona"],
-    14: ["JD",   "Abies_alba",             "Jodła pospolita"],
-    15: ["MD",   "Larix_decidua",          "Modrzew europejski"],
-    16: ["SO",   "Pinus_sylvestris",       "Sosna zwyczajna"],
-    17: ["ŚW",   "Picea_abies",            "Świerk pospolity"],
-    18: ["TP",   "Populus_alba",           "Topola biała"],
-    19: ["TP.C", "Populus_nigra",          "Topola czarna"],
-    20: ["OS",   "Populus_tremula",        "Topola osika"],
-    21: ["DB",   "Quercus species",        "Dąb nieokreślony"]
+    "BRZ":  ["Betula_pendula",         "Brzoza brodawkowata"],
+    "BK":   ["Fagus_sylvatica",        "Buk zwyczajny"],
+    "DB.S": ["Quercus_robur",          "Dąb szypułkowy"],
+    "DB.B": ["Quercus_petraea",        "Dąb bezszypułkowy"],
+    "DB.C": ["Quercus_rubra",          "Dąb czerwony"],
+    "GB":   ["Carpinus_betulus",       "Grab pospolity"],
+    "JS":   ["Fraxinus_excelsior",     "Jesion wyniosły"],
+    "KL":   ["Acer_platanoides",       "Klon pospolity"],
+    "JW":   ["Acer_pseudoplatanus",    "Klon jawor"],
+    "KL.P": ["Acer_campestre",         "Klon polny"],
+    "LP":   ["Tilia_cordata",          "Lipa drobnolistna"],
+    "WZ.S": ["Ulmus_laevis",           "Wiąz szypułkowy"],
+    "GŁG":  ["Crataegus_monogyna",     "Głóg jednoszyjkowy"],
+    "LSZ":  ["Corylus_avellana",       "Leszczyna pospolita"],
+    "DG":   ["Pseudotsuga_menziesii",  "Daglezja zielona"],
+    "JD":   ["Abies_alba",             "Jodła pospolita"],
+    "MD":   ["Larix_decidua",          "Modrzew europejski"],
+    "SO":   ["Pinus_sylvestris",       "Sosna zwyczajna"],
+    "ŚW":   ["Picea_abies",            "Świerk pospolity"],
+    "OS":   ["Populus_tremula",        "Topola osika"],
+    "TP":   ["Populus_alba",           "Topola biała"],
+    "TP.C": ["Populus_nigra",          "Topola czarna"],
+    "DB":   ["Quercus species",        "Dąb nieokreślony"]
 }
 
 RDLP_TO_COLLECTION = {
@@ -69,14 +70,21 @@ RDLP_TO_COLLECTION = {
 
 class BDLCall():
 
-    def __init__(self, species_dbl: dict = SPECIES_DBL, species_model: dict = SPECIES_MODEL,  size_m: int = 300, model_based: bool = True): # dodaj flage model_based - opis jak niżej
+    def __init__(
+        self,
+        species_dbl: dict = SPECIES_DBL,
+        species_model: dict = SPECIES_MODEL,
+        rdlp_dict: dict = RDLP_TO_COLLECTION,
+        size_m: int = 600,
+        model_based: bool = True,
+    ):
         self.session = requests.Session()
         self.base = "https://ogcapi.bdl.lasy.gov.pl"
         self.species_dbl = species_dbl
         self.species_model = species_model
+        self.rdlp_dict = rdlp_dict
         self.size_m = size_m
         self.model_based = model_based
-
 
 
     def get_rdlp_collection(self, lat: float, lon: float, RDLP_dict: dict = RDLP_TO_COLLECTION):
@@ -86,8 +94,8 @@ class BDLCall():
 
         return RDLP_dict.get(feats[0]["properties"]["region_name"])
 
-    def bbox_meters(self, lon: float, lat: float, size_m: int):
-        half = size_m / 2
+    def bbox_meters(self, lon: float, lat: float):
+        half = self.size_m / 2
         dlat = half / 111_320
         dlon = half / (111_320 * math.cos(math.radians(lat))) 
         bbox = f"{lon-dlon},{lat-dlat},{lon+dlon},{lat+dlat}"
@@ -112,8 +120,8 @@ class BDLCall():
             url, params = nxt, None
         return feats
 
-    def find_species(self, lat: float, lon: float): 
-        # size_m powinno być w init
+    def find_species(self, lat: float, lon: float, input_class: int):
+        # size_m powinno być w init 
         # w find_species powinna być klasa podana jako int
         # int zwrócony przez model -> 
         # -> szukasz obszaru na którym jest dane drzewo 
@@ -127,24 +135,56 @@ class BDLCall():
         # --> jeśli model zwrócił others 15, ale nie masz danych o obszarze: zwracasz others
         # --> tak samo jak others działa błędna segmentacja
         #
+        
+        def _most_often(species_found: dict):
+            return next(iter(species))
 
+
+        input_latin = self.species_model[input_class][0]
+        print(input_latin)
         
         collection = self.get_rdlp_collection(lat, lon)
-        bbox  = self.bbox_meters(lon, lat, self.size_m)
+        bbox  = self.bbox_meters(lon, lat)
         feats = self.fetch_all(collection, bbox)
         count_totals = Counter()
         for f in feats:
             p = f["properties"]
             sp = p.get("species_cd")
-            if not sp:
-                continue
-            count_totals[sp] += 1
-        
+
+            try:
+                latin = self.species_dbl[sp][0]
+                count_totals[latin] += 1
+            except:
+                print(f"{sp} not in the DBL dict")
+            
+            if input_latin == "Others":
+                if count_totals:
+                   _most_often(count_totals)
+                else:
+                    return "Others"
+                
+            if input_latin ==  "Incorrect segmentation":
+                return "Incorrect segmentation"
+            
+            for species in count_totals:
+                if species.find(input_latin) != -1:
+                    print(count_totals)
+                    print(species)
+                    return species
+                else:
+                    if self.model_based:
+                        for key, value in self.species_dbl.items():
+                            if value[0].find(input) != -1:
+                                return value[0]
+                    else:
+                        return species
+
+
         print(count_totals)
 
 
 
 
 
-BDL = BDLCall()
-BDL.find_species(53.588330,22.515171)
+BDL = BDLCall(size_m=10000)
+BDL.find_species(53.614462,22.487602, 0)
