@@ -181,8 +181,8 @@ class BDLCall():
 
 
 if __name__ == "__main__":
-    bdl = BDLCall(size_m=10000)
-    print(bdl.find_species(53.504684,22.572753, 0))
+    bdl = BDLCall(size_m=1000)
+    print(bdl.find_species(53.568677,22.523165, 5))
 
     # size_m powinno być w init 
     # w find_species powinna być klasa podana jako int
