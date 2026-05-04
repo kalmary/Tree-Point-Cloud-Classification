@@ -175,8 +175,8 @@ def load_config(base_dir: Union[str, pth.Path], device_name: str, mode: int = 0)
     """
     Load configuration files and prepare experiment configurations for training.
     mode:
-    0 - single_training
-    1 - multiple trainings, grid_based
+    0 - test
+    1 - single training
     2 - multiple trainings, with optuna
     
     """
@@ -184,12 +184,11 @@ def load_config(base_dir: Union[str, pth.Path], device_name: str, mode: int = 0)
     logger.info(f'START: case_based_training.')
 
     if isinstance(mode, int):
-        if mode not in [0, 1, 2, 3]:
+        if mode not in [0, 1, 2]:
             raise ValueError(f"Invalid mode: {mode}. Must be:\n" \
                              "0 - test" \
                              "1 - single_training," \
-                             "2 - multiple trainings, grid_based," \
-                             "3 - multiple trainings, with optuna.")
+                             "2 - multiple trainings, with optuna.")
 
     base_dir = pth.Path(base_dir)
     config_files_dir = base_dir.joinpath('training_configs')
@@ -201,7 +200,7 @@ def load_config(base_dir: Union[str, pth.Path], device_name: str, mode: int = 0)
 
     if mode == 0 or mode == 1:
         training_config = load_json(config_files_dir.joinpath('config_train_single.json'))
-    elif mode == 2 or mode == 3:
+    elif mode == 2:
         training_config = load_json(config_files_dir.joinpath('config_train.json'))
     
     logger.info(f'Loaded training config for mode: {mode}.')
@@ -212,12 +211,13 @@ def load_config(base_dir: Union[str, pth.Path], device_name: str, mode: int = 0)
         model_configs_paths_list = [p for p in model_configs_paths_list if "single" not in p.stem]
     
     training_config = convert_str_values(training_config)
-    model_configs_list, _ = check_models(model_configs_paths_list)
+    model_configs_list, _ = check_models(model_configs_paths_list, max_memory_GB=32)
     
     assert model_configs_list != 0, "No models compiled. Check model_configs - most likely too big models are defined"
 
-    if mode == 3:
-        device = torch.device('cuda') if (('cuda' in device_name.lower() or 'gpu' in device_name.lower()) and torch.cuda.is_available()) else torch.device('cpu')
+    device = torch.device('cuda') if (('cuda' in device_name.lower() or 'gpu' in device_name.lower()) and torch.cuda.is_available()) else torch.device('cpu')
+    if mode == 2:
+
         training_config['device'] = device
         
         logger.info(f'Loaded device: {device}')
@@ -227,11 +227,15 @@ def load_config(base_dir: Union[str, pth.Path], device_name: str, mode: int = 0)
 
         return [training_config, model_configs_list]
     else:
-        exp_configs = generate_experiment_configs(training_config, 
-                                            model_configs_list, 
-                                            device_name = device_name)
+        
         
         logger.info(f'STOP: load_config. All files loaded.')
+
+        training_config['model'] = None
+        training_config['model_config'] = model_configs_list[0]
+        training_config['device'] = device
+
+        exp_configs = [training_config]
 
         return exp_configs
 
@@ -246,7 +250,7 @@ def test_case(exp_config: dict) -> None:
     exp_config['epochs'] = 2
     
     try:
-        for _, _ in train_model(training_dict=exp_config):
+        for _, _, _ in train_model(training_dict=exp_config):
             pass
     except Exception as e:
         logger.error(f'ERROR: test_case. Error message: {e}')
@@ -311,8 +315,11 @@ class Checkpoint:
         logger.info(f'New best model saved to: {model_path}. model_name: {model_name}')
 
 
-        best_config = exp_config
+        best_config = exp_config.copy()
         best_config['device'] = str(best_config['device'])
+        if 'pretrained_model_path' in best_config:
+            best_config['pretrained_model_path'] = str(best_config['pretrained_model_path'])
+
 
         best_hist = result_hist
 
@@ -378,7 +385,7 @@ def case_based_training(exp_configs: list[dict],
     for i, exp_config in pbar:
         logger.info(f'Case {i+1}/{len(exp_configs)}: {exp_config}')
 
-        for model, result_hist in train_model(training_dict=exp_config):
+        for model, result_hist, _ in train_model(training_dict=exp_config):
             logger.info(f'Single model was generated. val_acc: {result_hist["acc_hist_val"][-1]:.3f}  val_loss: {result_hist["loss_hist_val"][-1]:.3f}')
 
             final_val = result_hist['acc_hist_val'][-1]*0.6 + (1 / (1 + result_hist['loss_hist_val'][-1]))*0.4
@@ -407,7 +414,6 @@ def objective_function(trial: optuna.Trial,
     logger = logging.getLogger(__name__)
     logger.info(f'START: objective_function')
 
-    existing_ok = False
 
 
     model_config_index = trial.suggest_categorical('model_config_index', range(len(model_configs_list)))
@@ -443,7 +449,7 @@ def objective_function(trial: optuna.Trial,
         'train_repeat':1,
         'epoch_freeze_model_percent': epoch_freeze_model_percent
     })
-
+    
     logger.info(f'Generated exp_config for trial: {trial.number}')
     for key, value in exp_config.items():
         if key != 'model_config':
@@ -455,7 +461,6 @@ def objective_function(trial: optuna.Trial,
     # start training
     best_val_accuracy = 0.0
     best_val_loss = float('inf')
-    best_val_miou = 0.0
 
     for epoch_idx, (model, result_hist) in enumerate(train_model(training_dict=exp_config)):
         
@@ -476,11 +481,11 @@ def objective_function(trial: optuna.Trial,
         normalized_loss = 1 / (1 + best_val_loss)
         final_val = 0.6 * best_val_accuracy + 0.4 * normalized_loss# TODO tuning might be necessary
 
-        checkpoint.check_checkpoint(model,
-                                    model_name,
-                                    final_val,
-                                    exp_config,
-                                    result_hist)
+        model, best_config, _, _ = checkpoint.check_checkpoint(model,
+                                                                                model_name,
+                                                                                final_val,
+                                                                                exp_config,
+                                                                                result_hist)
 
         logger.info(f'Epoch {epoch_idx+1}/{exp_config["epochs"]}: best_val_acc: {best_val_accuracy:.3f}, best_val_loss: {best_val_loss:.3f}, final_val: {final_val:.3f}')
 
@@ -523,6 +528,7 @@ def optuna_based_training(exp_config: list[dict], # only one, non converted conf
 
 
     model_configs = exp_config[1]
+
     exp_config = exp_config[0]
 
     train_repeat_old = exp_config['train_repeat']
@@ -580,7 +586,7 @@ def optuna_based_training(exp_config: list[dict], # only one, non converted conf
 
     print('Training the best model last time: ')
 
-    case_based_training([final_exp_config], # FIXME inproper dict creation
+    case_based_training([final_exp_config],
                         model_name=model_name)
     
     logger.info(f'STOP: optuna_based_training')
@@ -610,6 +616,13 @@ def argparser():
         )
     )
 
+    parser.add_argument(
+    '--TL',
+    action='store_true',
+    default=False,
+    help='If set, load existing model for transfer learning before training.'
+    )
+
     
     # Flag definition
     parser.add_argument(
@@ -627,15 +640,14 @@ def argparser():
         '--mode',
         type=int,
         default=0,
-        choices=[0, 1, 2, 3, 4], # choice limit
+        choices=[0, 1, 2, 3], # choice limit
         help=(
             "Device for tensor based computation.\n"
             'Pick:\n'
             '0: test\n'
             '1: single training\n'
-            '2: multiple trainings, grid_based\n'
-            '3: multiple trainings, with optuna\n'
-            '4: only check models'
+            '2: multiple trainings, with optuna\n'
+            '3: only check models'
         )
     )
 
@@ -675,24 +687,44 @@ def main():
     model_name = args.model_name
 
     base_path = pth.Path(__file__).parent
-    if args.mode != 4:
-        exp_configs  = load_config(base_path, device, mode = args.mode)
+    if args.mode != 3:
+        exp_configs = load_config(base_path, device, mode=args.mode)
+
+    if args.TL and args.mode != 3:
+        pretrained_path = base_path / 'training_results' / str(model_name.rsplit('_', 1)[0]) / f'{model_name}.pt'
+        tl_config_path  = base_path / 'training_results' / str(model_name.rsplit('_', 1)[0]) / 'dict_files' / f'{model_name}_config.json'
+
+        tl_model_config = load_json(tl_config_path)['model_config']
+
+        configs_to_patch = exp_configs if args.mode != 2 else [exp_configs[0]]
+        for cfg in configs_to_patch:
+            cfg['pretrained_model_path'] = pretrained_path
+            cfg['model_config'] = tl_model_config
+
+        if args.mode in (0, 1):
+            exp_configs = [exp_configs[0]]  # drop all but first — model_config already patched
+        elif args.mode == 2:
+            exp_configs[1] = [tl_model_config]
+
+        model_name = model_name.rsplit('_', 1)[0] + '-TL_' + model_name.rsplit('_', 1)[1]
 
     if args.mode == 0:
         test_case(exp_config=exp_configs[0])
-    elif args.mode == 1 or args.mode==2:
-        case_based_training(exp_configs=exp_configs,
-                            model_name=model_name)
+    elif args.mode == 1:
+        case_based_training(exp_configs=exp_configs, model_name=model_name)
+    elif args.mode == 2:
+        optuna_based_training(exp_config=exp_configs, model_name=model_name, n_trials=100)
     elif args.mode == 3:
-        optuna_based_training(exp_config=exp_configs,
-                              model_name=model_name,
-                              n_trials=100)
-    elif args.mode == 4:
-        model_configs_dir = base_path.joinpath('model_configs')
-        model_configs_paths_list = list(model_configs_dir.rglob('*.json'))
-
-        check_models(model_configs_paths=model_configs_paths_list, verbose=True)
-
+        if args.TL:
+            tl_config_path = base_path / 'training_results' / args.model_name.rsplit('_', 1)[0] / 'dict_files' / f'{args.model_name}_config.json'
+            tl_model_config = load_json(tl_config_path)['model_config']
+            tmp_path = base_path / '_tmp_tl_model_config.json'
+            save2json(tl_model_config, tmp_path)
+            check_models(model_configs_paths=[tmp_path], verbose=True)
+            tmp_path.unlink()
+        else:
+            model_configs_dir = base_path.joinpath('model_configs')
+            check_models(model_configs_paths=list(model_configs_dir.rglob('*.json')), verbose=True)
         
 
 if __name__ == '__main__':
