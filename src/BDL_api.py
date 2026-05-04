@@ -26,6 +26,7 @@ SPECIES_MODEL = {
 SPECIES_DBL = {
     "BRZ":  ["Betula_pendula",         "Brzoza brodawkowata"],
     "BK":   ["Fagus_sylvatica",        "Buk zwyczajny"],
+    "DB":   ["Quercus_species",        "Dąb nieokreślony"],
     "DB.S": ["Quercus_robur",          "Dąb szypułkowy"],
     "DB.B": ["Quercus_petraea",        "Dąb bezszypułkowy"],
     "DB.C": ["Quercus_rubra",          "Dąb czerwony"],
@@ -45,8 +46,7 @@ SPECIES_DBL = {
     "ŚW":   ["Picea_abies",            "Świerk pospolity"],
     "OS":   ["Populus_tremula",        "Topola osika"],
     "TP":   ["Populus_alba",           "Topola biała"],
-    "TP.C": ["Populus_nigra",          "Topola czarna"],
-    "DB":   ["Quercus species",        "Dąb nieokreślony"]
+    "TP.C": ["Populus_nigra",          "Topola czarna"]
 }
 
 RDLP_TO_COLLECTION = {
@@ -164,7 +164,8 @@ class BDLCall():
         genus_latin = self.species_model[input_class][0]
 
         counts = self._count_species_in_area(lat, lon)
-
+        print(counts)
+        
         if genus_latin in ("Others", "Incorrect segmentation"):
             return self._most_common(counts) or genus_latin
 
@@ -181,7 +182,7 @@ class BDLCall():
 
 if __name__ == "__main__":
     bdl = BDLCall(size_m=10000)
-    print(bdl.find_species(53.614462, 22.487602, 0))
+    print(bdl.find_species(53.504684,22.572753, 0))
 
     # size_m powinno być w init 
     # w find_species powinna być klasa podana jako int
