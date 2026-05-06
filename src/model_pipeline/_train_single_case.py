@@ -160,7 +160,7 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
         yield None, {}
 
 
-    alpha = 0.7
+    alpha = 0.75
     criterion_f_t = FocalLoss(alpha= weights_t.to(device_loss), gamma=training_dict['focal_loss_gamma'], smoothing=0.1).to(device_loss) 
     criterion_f_v = FocalLoss(alpha= weights_v.to(device_loss), gamma=training_dict['focal_loss_gamma'], smoothing=0.1).to(device_loss)
 
@@ -243,9 +243,11 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
                     batch_y = batch_y.to(device_loss)
 
                     loss_f_t = criterion_f_t(outputs, batch_y)
-                    loss_a_t = criterion_a_t(emb, model.model.classifier[1].weight, batch_y)
-
-                    loss_t = alpha* loss_f_t + (1 - alpha) * loss_a_t
+                    if alpha == 1.:
+                        loss_t = loss_f_t
+                    else:
+                        loss_a_t = criterion_a_t(emb, model.model.classifier[1].weight, batch_y)
+                        loss_t = alpha* loss_f_t + (1 - alpha) * loss_a_t
 
                     loss_t.backward()
                     optimizer.step()
@@ -289,8 +291,11 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
 
 
                         loss_f_v = criterion_f_v(outputs, batch_y)
-                        loss_a_v = criterion_a_v(emb, model.model.classifier[1].weight, batch_y)
-                        loss_v = alpha* loss_f_v + (1 - alpha) * loss_a_v
+                        if alpha==1.:
+                            loss_v = loss_f_v
+                        else:
+                            loss_a_v = criterion_a_v(emb, model.model.classifier[1].weight, batch_y)
+                            loss_v = alpha* loss_f_v + (1 - alpha) * loss_a_v
 
                         accuracy_v = calculate_accuracy(outputs.cpu(), 
                                                                 batch_y.cpu())
