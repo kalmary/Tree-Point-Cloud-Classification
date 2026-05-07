@@ -24,29 +24,31 @@ SPECIES_MODEL = {
 }    
 
 SPECIES_DBL = {
-    "BRZ":  ["Betula_pendula",         "Brzoza brodawkowata"],
-    "BK":   ["Fagus_sylvatica",        "Buk zwyczajny"],
-    "DB":   ["Quercus_species",        "Dąb nieokreślony"],
-    "DB.S": ["Quercus_robur",          "Dąb szypułkowy"],
-    "DB.B": ["Quercus_petraea",        "Dąb bezszypułkowy"],
-    "DB.C": ["Quercus_rubra",          "Dąb czerwony"],
-    "GB":   ["Carpinus_betulus",       "Grab pospolity"],
-    "JS":   ["Fraxinus_excelsior",     "Jesion wyniosły"],
-    "KL":   ["Acer_platanoides",       "Klon pospolity"],
-    "JW":   ["Acer_pseudoplatanus",    "Klon jawor"],
-    "KL.P": ["Acer_campestre",         "Klon polny"],
-    "LP":   ["Tilia_cordata",          "Lipa drobnolistna"],
-    "WZ.S": ["Ulmus_laevis",           "Wiąz szypułkowy"],
-    "GŁG":  ["Crataegus_monogyna",     "Głóg jednoszyjkowy"],
-    "LSZ":  ["Corylus_avellana",       "Leszczyna pospolita"],
-    "DG":   ["Pseudotsuga_menziesii",  "Daglezja zielona"],
-    "JD":   ["Abies_alba",             "Jodła pospolita"],
-    "MD":   ["Larix_decidua",          "Modrzew europejski"],
-    "SO":   ["Pinus_sylvestris",       "Sosna zwyczajna"],
-    "ŚW":   ["Picea_abies",            "Świerk pospolity"],
-    "OS":   ["Populus_tremula",        "Topola osika"],
-    "TP":   ["Populus_alba",           "Topola biała"],
-    "TP.C": ["Populus_nigra",          "Topola czarna"]
+    0:  ["BRZ",  "Betula_pendula",         "Brzoza brodawkowata"],
+    1:  ["BK",   "Fagus_sylvatica",        "Buk zwyczajny"],
+    2:  ["DB",   "Quercus_species",        "Dąb nieokreślony"],
+    3:  ["DB.S", "Quercus_robur",          "Dąb szypułkowy"],
+    4:  ["DB.B", "Quercus_petraea",        "Dąb bezszypułkowy"],
+    5:  ["DB.C", "Quercus_rubra",          "Dąb czerwony"],
+    6:  ["GB",   "Carpinus_betulus",       "Grab pospolity"],
+    7:  ["JS",   "Fraxinus_excelsior",     "Jesion wyniosły"],
+    8:  ["KL",   "Acer_platanoides",       "Klon pospolity"],
+    9:  ["JW",   "Acer_pseudoplatanus",    "Klon jawor"],
+    10: ["KL.P", "Acer_campestre",         "Klon polny"],
+    11: ["LP",   "Tilia_cordata",          "Lipa drobnolistna"],
+    12: ["WZ.S", "Ulmus_laevis",           "Wiąz szypułkowy"],
+    13: ["GŁG",  "Crataegus_monogyna",     "Głóg jednoszyjkowy"],
+    14: ["LSZ",  "Corylus_avellana",       "Leszczyna pospolita"],
+    15: ["DG",   "Pseudotsuga_menziesii",  "Daglezja zielona"],
+    16: ["JD",   "Abies_alba",             "Jodła pospolita"],
+    17: ["MD",   "Larix_decidua",          "Modrzew europejski"],
+    18: ["SO",   "Pinus_sylvestris",       "Sosna zwyczajna"],
+    19: ["ŚW",   "Picea_abies",            "Świerk pospolity"],
+    20: ["OS",   "Populus_tremula",        "Topola osika"],
+    21: ["TP",   "Populus_alba",           "Topola biała"],
+    22: ["TP.C", "Populus_nigra",          "Topola czarna"],
+    23: ["",     "Others",                 "Inne"],
+    24: ["" ,    "Incorrect segmentation", "Błędna segmentacja"]
 }
 
 RDLP_TO_COLLECTION = {
@@ -186,6 +188,7 @@ if __name__ == "__main__":
 
     # size_m powinno być w init 
     # w find_species powinna być klasa podana jako int
+    # output find_species to int (key z SPECIES_DBL)
     # int zwrócony przez model -> 
     # -> szukasz obszaru na którym jest dane drzewo 
     # -> patrzysz jakie drzewa występują na tym terenie
@@ -196,4 +199,4 @@ if __name__ == "__main__":
     # ---> model_based: bool = False: zwracasz najczęstszy gatunek z obszaru
     # --> jeśli model zwrócił others 15: zwracasz najczęstsze drzewo z obszaru
     # --> jeśli model zwrócił others 15, ale nie masz danych o obszarze: zwracasz others
-    # --> tak samo jak others działa błędna segmentacja
+    # --> błędna segmentacja zawsze zwraca błędną segmentację
