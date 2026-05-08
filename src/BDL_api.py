@@ -88,14 +88,17 @@ class BDLCall():
         self.rdlp_dict = rdlp_dict
         self.size_m = size_m
         self.model_based = model_based
+        self._latin_to_int = {val[0]: val[2] for val in species_dbl.values()}
 
 
     def _fetch(self, url: str, params: Optional[dict] = None) -> dict:
+        # Performs a single GET request to the BDL API and returns the parsed JSON response.
         r = self.session.get(url, params=params, timeout=60)
         r.raise_for_status()
         return r.json()
 
     def _fetch_all(self, collection: str, bbox: str) -> list:
+        # Fetches all features from a collection within a bbox, following pagination links until exhausted.
         feats = []
         url = f"{self.base}/collections/{collection}/items"
         params = {"bbox": bbox, "limit": 1000, "f": "json"}
@@ -111,12 +114,14 @@ class BDLCall():
 
 
     def _bbox_meters(self, lat: float, lon: float) -> str:
+        # Builds a bbox string of size_m × size_m meters centered on the given lat/lon coordinates.
         half = self.size_m / 2
         dlat = half / 111_320
         dlon = half / (111_320 * math.cos(math.radians(lat)))
         return f"{lon - dlon},{lat - dlat},{lon + dlon},{lat + dlat}"
 
     def _get_rdlp_collection(self, lat: float, lon: float) -> Optional[str]:
+        # Resolves the RDLP region containing the point and returns its corresponding wydzielenia collection name.
         url = f"{self.base}/collections/rdlp/items"
         params = {"bbox": f"{lon},{lat},{lon},{lat}", "f": "json"}
         feats = self._fetch(url, params).get("features", [])
@@ -127,6 +132,7 @@ class BDLCall():
     
 
     def _count_species_in_area(self, lat: float, lon: float) -> Counter:
+        # Counts occurrences of each known species in forest stands intersecting the bbox around the point.
         collection = self._get_rdlp_collection(lat, lon)
         if collection is None:
             return Counter()
@@ -143,48 +149,56 @@ class BDLCall():
             counts[entry[0]] += 1
         return counts
 
-    @staticmethod
-    def _most_common(counts: Counter) -> Optional[str]:
-        return counts.most_common(1)[0][0] if counts else None
+    def _most_common(self, counts: Counter) -> Optional[int]:
+        # Returns the species int code of the most frequent entry in counts, or None if empty.
+        return self._get_int(counts.most_common(1)[0][0]) if counts else None
 
-    def _most_common_in_genus(self, counts: Counter, genus_latin: str) -> Optional[str]:
-        """Najczęstszy gatunek z danego rodzaju w obszarze (None jeśli brak)."""
+    def _most_common_in_genus(self, counts: Counter, genus_latin: str) -> Optional[int]:
+        # Returns the species int code of the most frequent species in the given genus, or None if absent.
         filtered = Counter({
             sp: n for sp, n in counts.items() if sp.startswith(genus_latin + "_")
         })
         return self._most_common(filtered)
 
-    def _default_species_for_genus(self, genus_latin: str) -> Optional[str]:
-        """Domyślny (pierwszy w SPECIES_DBL) gatunek dla danego rodzaju."""
-        for latin, _ in self.species_dbl.values():
-            if latin.startswith(genus_latin + "_"):
-                return latin
-        return None
+    def _default_species_for_genus(self, genus_latin: str) -> int:
+        # Returns the int code of the default (most common in Poland) species for a genus, falling back to "Others".
+        for val in self.species_dbl.values():
+            if val[0].startswith(genus_latin + "_"):
+                return val[2]
+        return self._get_int("Others")
+    
+    def _get_int(self, latin_name: str) -> int:
+        # Looks up the integer code assigned to a given Latin species name in SPECIES_DBL.
+        return self._latin_to_int[latin_name]
+    
 
-
-    def find_species(self, lat: float, lon: float, input_class: int) -> str:
+    def find_species(self, lat: float, lon: float, input_class: int) -> int:
+        # Maps a model-predicted genus class to a specific species int code using BDL area data and fallback rules.
         genus_latin = self.species_model[input_class][0]
+
+        if genus_latin == "Incorrect segmentation":
+            return self._get_int(genus_latin)
 
         counts = self._count_species_in_area(lat, lon)
         print(counts)
-        
-        if genus_latin in ("Others", "Incorrect segmentation"):
-            return self._most_common(counts) or genus_latin
 
-        # zwykły rodzaj — np. "Acer"
+        if genus_latin == "Others":
+            return self._most_common(counts) or self._get_int(genus_latin)
+
         in_area = self._most_common_in_genus(counts, genus_latin)
         if in_area is not None:
             return in_area
 
-        # rodzaju brak w obszarze
+        genus_default = self._default_species_for_genus(genus_latin)
+        
         if self.model_based:
-            return self._default_species_for_genus(genus_latin) or genus_latin
-        return self._most_common(counts) or genus_latin
+            return genus_default
+        return self._most_common(counts) or genus_default
 
 
 if __name__ == "__main__":
-    bdl = BDLCall(size_m=1000)
-    print(bdl.find_species(53.568677,22.523165, 5))
+    bdl = BDLCall(size_m=10, model_based=False)
+    print(bdl.find_species(53.608501,22.543651, 5))
 
     # size_m powinno być w init 
     # w find_species powinna być klasa podana jako int
