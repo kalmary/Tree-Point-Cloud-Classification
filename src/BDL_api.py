@@ -78,7 +78,7 @@ class BDLCall():
         species_dbl: dict = SPECIES_DBL,
         species_model: dict = SPECIES_MODEL,
         rdlp_dict: dict = RDLP_TO_COLLECTION,
-        size_m: int = 600,
+        size_m: int = 5000,
         model_based: bool = True,
     ):
         self.session = requests.Session()
@@ -180,7 +180,6 @@ class BDLCall():
             return self._get_int(genus_latin)
 
         counts = self._count_species_in_area(lat, lon)
-        print(counts)
 
         if genus_latin == "Others":
             return self._most_common(counts) or self._get_int(genus_latin)
@@ -197,8 +196,8 @@ class BDLCall():
 
 
 if __name__ == "__main__":
-    bdl = BDLCall(size_m=10, model_based=False)
-    print(bdl.find_species(53.608501,22.543651, 5))
+    bdl = BDLCall(size_m=5000, model_based=True)
+    print(bdl.find_species(53.643773,22.465687, 15))
 
     # size_m powinno być w init 
     # w find_species powinna być klasa podana jako int
