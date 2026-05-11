@@ -2,6 +2,7 @@ import requests
 import math
 from collections import Counter
 from typing import Optional
+from pyproj import Transformer
 
 SPECIES_MODEL = {
     0: ['Pinus', 'sosna'],
@@ -140,6 +141,13 @@ class BDLCall():
                 continue
             counts[entry[0]] += 1
         return counts
+
+    @staticmethod
+    def utm_to_latlon(easting: float, northing: float, crs=None):
+  
+        transformer = Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
+        lon, lat = transformer.transform(easting, northing)
+        return lat, lon
 
     @staticmethod
     def _most_common(counts: Counter) -> Optional[str]:
