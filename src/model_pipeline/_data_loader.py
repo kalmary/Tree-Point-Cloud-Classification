@@ -30,7 +30,7 @@ class Dataset(IterableDataset):
                  weights: torch.Tensor = None,
                  shuffle: bool = True,
                  buffer: int = 250,
-                 return_others: bool = False,
+                 ignore_index: bool = False,
                  device: Optional[torch.device] = torch.device('cpu')):
 
         super(Dataset).__init__()
@@ -157,7 +157,7 @@ class NpyDataset(torch.utils.data.Dataset):
                  path_dir: Union[str, pth.Path],
                  resolution_xy: int = 350,
                  training: bool = True,
-                 return_others: bool = False,
+                 ignore_index: Optional[int] = None,
                  device: Optional[torch.device] = torch.device('cpu')):
  
         self.path = pth.Path(path_dir)
@@ -166,8 +166,8 @@ class NpyDataset(torch.utils.data.Dataset):
         self.device = device
         self.files = sorted(self.path.rglob('*.npy'))
 
-        if not return_others:
-            self.files = [f for f in self.files if int(f.stem.rsplit('_', 1)[-1]) != 15] # TODO change if necessary
+        if ignore_index:
+            self.files = [f for f in self.files if int(f.stem.rsplit('_', 1)[-1]) < ignore_index]
         else:
             self.files = sorted(self.path.rglob('*.npy'))
  
@@ -184,11 +184,11 @@ class NpyDataset(torch.utils.data.Dataset):
         label = torch.tensor(label).long()
  
         if self.training:
-            cloud = add_gaussian_noise(cloud, std=0.05)
+            cloud = add_gaussian_noise(cloud, std=0.02)
             cloud = transform_points(cloud, device=self.device)
             cloud = rotate_points(cloud, device=self.device)
-            cloud = tilt_points(cloud, max_x_tilt_degrees=10, max_y_tilt_degrees=10, device=self.device)
+            cloud = tilt_points(cloud, max_x_tilt_degrees=15, max_y_tilt_degrees=15, device=self.device)
 
         cloud = cloud2sideViews_torch(cloud, resolution_xy=self.resolution_xy)
- 
+
         return cloud.cpu(), label
