@@ -105,15 +105,14 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
 
     weights_t, labels = compute_pos_weights(data_dir=training_dict['data_path_train'],
                                     num_classes=training_dict["num_classes"],
-                                    power=0.35,
+                                    power=0.15,
                                     ignore_index=16)
-    
-    
+
     weights_t_samples = weights_t[labels]
 
     weights_v, _ = compute_pos_weights(data_dir=training_dict['data_path_val'],
                                     num_classes=training_dict["num_classes"],
-                                    power=0.35,
+                                    power=0.15,
                                     ignore_index=16)
 
     sampler_t = WeightedRandomSampler(
