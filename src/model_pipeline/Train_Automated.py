@@ -504,14 +504,14 @@ def objective_function(trial: optuna.Trial,
 
 def optuna_based_training(exp_config: list[dict], # only one, non converted conf given in list
                           model_name: str,
-                          n_trials: int = 100) -> None:
+                          n_trials: int = 90) -> None:
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     
     logger = logging.getLogger(__name__)
     logger.info(f'START: optuna_based_training.')
 
     # able to automatically stop poor working exps
-    n_startup = 40
+    n_startup = 30
     n_warmup_steps = 25
     interval_steps = 5
 
@@ -713,7 +713,7 @@ def main():
     elif args.mode == 1:
         case_based_training(exp_configs=exp_configs, model_name=model_name)
     elif args.mode == 2:
-        optuna_based_training(exp_config=exp_configs, model_name=model_name, n_trials=100)
+        optuna_based_training(exp_config=exp_configs, model_name=model_name, n_trials=90)
     elif args.mode == 3:
         if args.TL:
             tl_config_path = base_path / 'training_results' / args.model_name.rsplit('_', 1)[0] / 'dict_files' / f'{args.model_name}_config.json'
