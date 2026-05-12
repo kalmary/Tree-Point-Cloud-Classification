@@ -5,13 +5,18 @@ import torch.nn as nn
 import pathlib as pth
 
 try:
-    from final_files.model import ResNetTreeClassifier
+    from .final_files.model import EfficientNetClassifier
     from .utils import load_model, load_json
     from .utils.data_augmentation import cloud2sideViews_torch
 except ImportError:
-    from .final_files.model import ResNetTreeClassifier
-    from utils import load_model, load_json
-    from utils.data_augmentation import cloud2sideViews_torch
+    try:
+        from final_files.model import EfficientNetClassifier
+        from utils import load_model, load_json
+        from utils.data_augmentation import cloud2sideViews_torch
+    except ImportError:
+        from TreeClassification.src.final_files.model import EfficientNetClassifier
+        from TreeClassification.src.utils import load_model, load_json
+        from TreeClassification.src.utils.data_augmentation import cloud2sideViews_torch
 
 class TreeClassifier:
     def __init__(self,
@@ -22,30 +27,31 @@ class TreeClassifier:
         if isinstance(device, str):
             device = torch.device(device)
         self.device = device
-        self._model_config = self._load_config(config_dir)
-        self._model = self._load_model(config_dir)
+
+        self._config = None
+        self._model_config = None
+        self._model = None
+        self._load_config(config_dir)
+        self._load_model(config_dir)
 
     # TODO adjust model loading 
     def _load_config(self, config_dir: Optional[Union[pth.Path, str]] = None) -> dict:
 
         config_path = pth.Path(config_dir).joinpath(self.model_name.replace('.pt', '_config.json'))
         config_dict = load_json(config_path)
-        # self._model_config: dict = config_dict['model_config']
-        self._model_config: dict = config_dict
 
-        
-
-        return config_dict
+        self._config = config_dict
+        self._model_config: dict = config_dict["model_config"]
 
     def _load_model(self, model_dir: Union[pth.Path, str] = "./final_files") -> nn.Module:
 
         path2model = pth.Path(model_dir).joinpath(self.model_name)
-        model = ResNetTreeClassifier(self._model_config['num_channels'], self._model_config['num_classes'])
+        model = EfficientNetClassifier(self._model_config, self._config['num_classes'])
         _model: nn.Module = load_model(file_path=path2model,
                                             model=model,
                                             device=self.device)
         _model.eval()
-        return _model
+        self._model = _model
         
     def predict(self, cloud: np.ndarray):
         cloud = torch.as_tensor(cloud, dtype=torch.float64)

@@ -167,7 +167,7 @@ cython_debug/
 
 **/model_pipeline/logs/
 **/training_results/
-**/final_files/
+# **/final_files/
 **/db.sqlite3
 **/model_configs_bin/
 
