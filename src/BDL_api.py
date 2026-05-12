@@ -25,7 +25,7 @@ SPECIES_MODEL = {
     16: ['Incorrect segmentation', 'Błędna segmentacja']
 }    
 
-SPECIES_BDL = {
+SPECIES_DBL = {
     "BRZ":  ["Betula_pendula",         "Brzoza brodawkowata",   0],
     "BK":   ["Fagus_sylvatica",        "Buk zwyczajny",         1],
     "DB":   ["Quercus_species",        "Dąb nieokreślony",      2],
@@ -77,7 +77,7 @@ class BDLCall():
 
     def __init__(
         self,
-        species_dbl: dict = SPECIES_BDL,
+        species_dbl: dict = SPECIES_DBL,
         species_model: dict = SPECIES_MODEL,
         rdlp_dict: dict = RDLP_TO_COLLECTION,
         size_m: int = 5000,
@@ -91,9 +91,6 @@ class BDLCall():
         self.size_m = size_m
         self.model_based = model_based
         self._latin_to_int = {val[0]: val[2] for val in species_dbl.values()}
-        self._species_storage: Optional[Counter] = None
-        self._species_tile_map: Optional[dict[tuple[int, int], Counter]] = None
-        self._tile_origin_xy: Optional[np.ndarray] = None
 
 
     def _fetch(self, url: str, params: Optional[dict] = None) -> dict:
@@ -160,81 +157,6 @@ class BDLCall():
             counts[entry[0]] += 1
         return counts
 
-    @staticmethod
-    def _validate_pcd(pcd: np.ndarray) -> None:
-        if pcd.ndim != 2 or pcd.shape[1] < 2:
-            raise ValueError("pcd must be a 2D array with at least x and y columns")
-        if len(pcd) == 0:
-            raise ValueError("pcd must not be empty")
-
-    @staticmethod
-    def _xy_bounds(pcd: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        xy_min = pcd[:, :2].min(axis=0)
-        xy_max = pcd[:, :2].max(axis=0)
-        return xy_min, xy_max
-
-    def _counts_for_xy(self, xy: np.ndarray, crs) -> Counter:
-        lat, lon = self.utm_to_latlon(xy[0], xy[1], crs=crs)
-        return self._count_species_in_area(lat, lon)
-
-    def _build_single_species_storage(
-        self,
-        xy_min: np.ndarray,
-        xy_max: np.ndarray,
-        crs,
-    ) -> Counter:
-        center_xy = (xy_min + xy_max) / 2
-        return self._counts_for_xy(center_xy, crs)
-
-    def _tile_id_for_xy(self, xy: np.ndarray) -> tuple[int, int]:
-        tile_xy = np.floor((xy - self._tile_origin_xy) / self.size_m).astype(int)
-        return int(tile_xy[0]), int(tile_xy[1])
-
-    def _tile_center_xy(self, tile_id: tuple[int, int]) -> np.ndarray:
-        return self._tile_origin_xy + (np.asarray(tile_id, dtype=float) + 0.5) * self.size_m
-
-    def _build_species_tile_map(self, pcd: np.ndarray, xy_min: np.ndarray, crs) -> dict[tuple[int, int], Counter]:
-        self._tile_origin_xy = xy_min
-        tile_ids = {
-            self._tile_id_for_xy(xy)
-            for xy in pcd[:, :2]
-        }
-        return {
-            tile_id: self._counts_for_xy(self._tile_center_xy(tile_id), crs)
-            for tile_id in tile_ids
-        }
-
-    def prepare_species_storage(self, pcd: np.ndarray, crs):
-        # Builds one shared counter or a non-overlapping tile map for a vegetation cloud.
-        self.clear_species_storage()
-        self._validate_pcd(pcd)
-
-        xy_min, xy_max = self._xy_bounds(pcd)
-        xy_size = xy_max - xy_min
-
-        if np.any(xy_size > self.size_m):
-            self._species_tile_map = self._build_species_tile_map(pcd, xy_min, crs)
-            return self._species_tile_map
-
-        self._species_storage = self._build_single_species_storage(xy_min, xy_max, crs)
-        return self._species_storage
-
-    def clear_species_storage(self) -> None:
-        self._species_storage = None
-        self._species_tile_map = None
-        self._tile_origin_xy = None
-
-    def _get_stored_counts(self, pcd: np.ndarray) -> Optional[Counter]:
-        if self._species_storage is not None:
-            return self._species_storage
-
-        if self._species_tile_map is None:
-            return None
-
-        centroid = pcd[:, :2].mean(axis=0)
-        tile_id = self._tile_id_for_xy(centroid)
-        return self._species_tile_map.get(tile_id)
-
     def _most_common(self, counts: Counter) -> Optional[int]:
         # Returns the species int code of the most frequent entry in counts, or None if empty.
         return self._get_int(counts.most_common(1)[0][0]) if counts else None
@@ -258,10 +180,6 @@ class BDLCall():
         return self._latin_to_int[latin_name]
 
     def predict(self, pcd: np.ndarray, crs, tree_label: int) -> int:
-        stored_counts = self._get_stored_counts(pcd)
-        if stored_counts is not None:
-            return self._resolve_species(stored_counts, tree_label)
-
         centroid = pcd.mean(axis=0)
         lat, lon = self.utm_to_latlon(centroid[0], centroid[1], crs=crs)
         tree_label = self.find_species(lat, lon, tree_label)
@@ -269,14 +187,12 @@ class BDLCall():
 
     def find_species(self, lat: float, lon: float, input_class: int) -> int:
         # Maps a model-predicted genus class to a specific species int code using BDL area data and fallback rules.
-        counts = self._count_species_in_area(lat, lon)
-        return self._resolve_species(counts, input_class)
-
-    def _resolve_species(self, counts: Counter, input_class: int) -> int:
         genus_latin = self.species_model[input_class][0]
 
         if genus_latin == "Incorrect segmentation":
             return self._get_int(genus_latin)
+
+        counts = self._count_species_in_area(lat, lon)
 
         if genus_latin == "Others":
             return self._most_common(counts) or self._get_int(genus_latin)
