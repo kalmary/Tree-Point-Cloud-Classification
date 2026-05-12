@@ -25,7 +25,7 @@ SPECIES_MODEL = {
     16: ['Incorrect segmentation', 'Błędna segmentacja']
 }    
 
-SPECIES_DBL = {
+SPECIES_BDL = {
     "BRZ":  ["Betula_pendula",         "Brzoza brodawkowata",   0],
     "BK":   ["Fagus_sylvatica",        "Buk zwyczajny",         1],
     "DB":   ["Quercus_species",        "Dąb nieokreślony",      2],
@@ -77,7 +77,7 @@ class BDLCall():
 
     def __init__(
         self,
-        species_dbl: dict = SPECIES_DBL,
+        species_dbl: dict = SPECIES_BDL,
         species_model: dict = SPECIES_MODEL,
         rdlp_dict: dict = RDLP_TO_COLLECTION,
         size_m: int = 5000,
