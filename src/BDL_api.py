@@ -3,6 +3,7 @@ import math
 from collections import Counter
 from typing import Optional
 from pyproj import Transformer
+import numpy as np
 
 SPECIES_MODEL = {
     0: ['Pinus', 'sosna'],
@@ -177,7 +178,12 @@ class BDLCall():
     def _get_int(self, latin_name: str) -> int:
         # Looks up the integer code assigned to a given Latin species name in SPECIES_DBL.
         return self._latin_to_int[latin_name]
-    
+
+    def predict(self, pcd: np.ndarray, crs, tree_label: int) -> int:
+        centroid = pcd.mean(axis=0)
+        lat, lon = self.utm_to_latlon(centroid[0], centroid[1], crs=crs)
+        tree_label = self.find_species(lat, lon, tree_label)
+        return tree_label
 
     def find_species(self, lat: float, lon: float, input_class: int) -> int:
         # Maps a model-predicted genus class to a specific species int code using BDL area data and fallback rules.
