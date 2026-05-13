@@ -132,11 +132,14 @@ class BDLCall():
         lon, lat = transformer.transform(easting, northing)
         return lat, lon
 
-    def _bbox_meters(self, lat: float, lon: float) -> str:
-        half = self.size_m / 2
-        dlat = half / 111_320
-        dlon = half / (111_320 * math.cos(math.radians(lat)))
-        return f"{lon - dlon},{lat - dlat},{lon + dlon},{lat + dlat}"
+    @staticmethod
+    def _bbox_from_cartesian(cx: float, cy: float, half: float, crs) -> str:
+        transformer = Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
+        lons, lats = transformer.transform(
+            [cx - half, cx + half],
+            [cy - half, cy + half],
+        )
+        return f"{lons[0]},{lats[0]},{lons[1]},{lats[1]}"
 
     # ------------------------------------------------------------------
     # BDL lookup helpers
@@ -151,12 +154,13 @@ class BDLCall():
         region = feats[0]["properties"].get("region_name")
         return self.rdlp_dict.get(region)
 
-    def _count_species_in_area(self, lat: float, lon: float) -> Counter:
+    def _count_species_in_area(self, cx: float, cy: float, crs) -> Counter:
+        lat, lon = self.utm_to_latlon(cx, cy, crs=crs)
         collection = self._get_rdlp_collection(lat, lon)
         if collection is None:
             return Counter()
 
-        bbox = self._bbox_meters(lat, lon)
+        bbox = self._bbox_from_cartesian(cx, cy, self.size_m / 2, crs)
         feats = self._fetch_all(collection, bbox)
 
         counts = Counter()
@@ -213,13 +217,13 @@ class BDLCall():
     # Tile map
     # ------------------------------------------------------------------
 
-    def build_data_map(self, pcd: np.ndarray, crs) -> None:
+    def build_data_map(self, points: np.ndarray, crs) -> None:
         # Drop stale map before building — no artifacts from a previous file.
         self._tile_map = None
         self._tile_origin = None
         self._tile_crs = None
 
-        xy = pcd[:, :2]
+        xy = points[:, :2]
         x_min, y_min = xy.min(axis=0)
         x_max, y_max = xy.max(axis=0)
 
@@ -232,8 +236,7 @@ class BDLCall():
             for iy in range(n_y):
                 cx = x_min + (ix + 0.5) * self.size_m
                 cy = y_min + (iy + 0.5) * self.size_m
-                lat, lon = self.utm_to_latlon(cx, cy, crs=crs)
-                tile_map[(ix, iy)] = self._count_species_in_area(lat, lon)
+                tile_map[(ix, iy)] = self._count_species_in_area(cx, cy, crs)
 
         self._tile_map = tile_map
         self._tile_origin = (x_min, y_min)
@@ -271,16 +274,35 @@ class BDLCall():
             idx = self._tile_index(centroid[0], centroid[1])
             counts = self._tile_map[idx]
         else:
-            lat, lon = self.utm_to_latlon(centroid[0], centroid[1], crs=crs)
-            counts = self._count_species_in_area(lat, lon)
+            counts = self._count_species_in_area(centroid[0], centroid[1], crs)
 
         return self._resolve(counts, tree_label)
 
-    def find_species(self, lat: float, lon: float, input_class: int) -> int:
-        counts = self._count_species_in_area(lat, lon)
+    def find_species(self, lat: float, lon: float, input_class: int, crs=None) -> int:
+        crs = crs or self._tile_crs
+        if crs is None:
+            raise ValueError("crs required when build_data_map has not been called")
+        transformer = Transformer.from_crs("EPSG:4326", crs, always_xy=True)
+        cx, cy = transformer.transform(lon, lat)
+        counts = self._count_species_in_area(cx, cy, crs)
         return self._resolve(counts, input_class)
 
 
 if __name__ == "__main__":
     bdl = BDLCall(size_m=5000, model_based=True)
-    print(bdl.find_species(53.643773, 22.465687, 15))
+    print(bdl.find_species(53.643773, 22.465687, 12, crs="EPSG:2180"))
+
+    # size_m powinno być w init 
+    # w find_species powinna być klasa podana jako int
+    # output find_species to int (key z SPECIES_DBL)
+    # int zwrócony przez model -> 
+    # -> szukasz obszaru na którym jest dane drzewo 
+    # -> patrzysz jakie drzewa występują na tym terenie
+    # -> robisz dopasowanie:
+    # --> jeśli masz model zwrócił np. klon: szukasz jakie klony występują na tym obszarze i zwracasz najczęstszy gatunek klona
+    # --> jeśli na tym obszarze nie ma np. klonu a model go zwrócił działasz zależnie od flagi: 
+    # ---> model_based: bool = True: zwracasz klon (ten który w Polsce jest częstszy, dokładana nazwa)
+    # ---> model_based: bool = False: zwracasz najczęstszy gatunek z obszaru
+    # --> jeśli model zwrócił others 15: zwracasz najczęstsze drzewo z obszaru
+    # --> jeśli model zwrócił others 15, ale nie masz danych o obszarze: zwracasz others
+    # --> błędna segmentacja zawsze zwraca błędną segmentację
