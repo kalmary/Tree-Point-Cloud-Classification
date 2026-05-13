@@ -23,7 +23,7 @@ SPECIES_MODEL = {
     14: ['Crataegus', 'głóg'],
     15: ['Others', 'Inne'],
     16: ['Incorrect segmentation', 'Błędna segmentacja']
-}    
+}
 
 SPECIES_DBL = {
     "BRZ":  ["Betula_pendula",         "Brzoza brodawkowata",   0],
@@ -73,6 +73,7 @@ RDLP_TO_COLLECTION = {
     "WARSZAWA":     "RDLP_Warszawa_wydzielenia",
 }
 
+
 class BDLCall():
 
     def __init__(
@@ -92,15 +93,22 @@ class BDLCall():
         self.model_based = model_based
         self._latin_to_int = {val[0]: val[2] for val in species_dbl.values()}
 
+        # tile_map: (ix, iy) -> Counter[latin_name, count]
+        # tile origin (meters, same CRS as the PCD passed to build_data_map)
+        self._tile_map: Optional[dict] = None
+        self._tile_origin: Optional[tuple] = None   # (x_min, y_min)
+        self._tile_crs = None
+
+    # ------------------------------------------------------------------
+    # HTTP helpers
+    # ------------------------------------------------------------------
 
     def _fetch(self, url: str, params: Optional[dict] = None) -> dict:
-        # Performs a single GET request to the BDL API and returns the parsed JSON response.
         r = self.session.get(url, params=params, timeout=60)
         r.raise_for_status()
         return r.json()
 
     def _fetch_all(self, collection: str, bbox: str) -> list:
-        # Fetches all features from a collection within a bbox, following pagination links until exhausted.
         feats = []
         url = f"{self.base}/collections/{collection}/items"
         params = {"bbox": bbox, "limit": 1000, "f": "json"}
@@ -114,22 +122,27 @@ class BDLCall():
             params = None
         return feats
 
+    # ------------------------------------------------------------------
+    # Geometry helpers
+    # ------------------------------------------------------------------
+
     @staticmethod
     def utm_to_latlon(easting: float, northing: float, crs=None):
-  
         transformer = Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
         lon, lat = transformer.transform(easting, northing)
         return lat, lon
 
     def _bbox_meters(self, lat: float, lon: float) -> str:
-        # Builds a bbox string of size_m × size_m meters centered on the given lat/lon coordinates.
         half = self.size_m / 2
         dlat = half / 111_320
         dlon = half / (111_320 * math.cos(math.radians(lat)))
         return f"{lon - dlon},{lat - dlat},{lon + dlon},{lat + dlat}"
 
+    # ------------------------------------------------------------------
+    # BDL lookup helpers
+    # ------------------------------------------------------------------
+
     def _get_rdlp_collection(self, lat: float, lon: float) -> Optional[str]:
-        # Resolves the RDLP region containing the point and returns its corresponding wydzielenia collection name.
         url = f"{self.base}/collections/rdlp/items"
         params = {"bbox": f"{lon},{lat},{lon},{lat}", "f": "json"}
         feats = self._fetch(url, params).get("features", [])
@@ -137,10 +150,8 @@ class BDLCall():
             return None
         region = feats[0]["properties"].get("region_name")
         return self.rdlp_dict.get(region)
-    
 
     def _count_species_in_area(self, lat: float, lon: float) -> Counter:
-        # Counts occurrences of each known species in forest stands intersecting the bbox around the point.
         collection = self._get_rdlp_collection(lat, lon)
         if collection is None:
             return Counter()
@@ -157,36 +168,30 @@ class BDLCall():
             counts[entry[0]] += 1
         return counts
 
+    # ------------------------------------------------------------------
+    # Species resolution helpers
+    # ------------------------------------------------------------------
+
     def _most_common(self, counts: Counter) -> Optional[int]:
-        # Returns the species int code of the most frequent entry in counts, or None if empty.
         return self._get_int(counts.most_common(1)[0][0]) if counts else None
 
     def _most_common_in_genus(self, counts: Counter, genus_latin: str) -> Optional[int]:
-        # Returns the species int code of the most frequent species in the given genus, or None if absent.
         filtered = Counter({
             sp: n for sp, n in counts.items() if sp.startswith(genus_latin + "_")
         })
         return self._most_common(filtered)
 
     def _default_species_for_genus(self, genus_latin: str) -> int:
-        # Returns the int code of the default (most common in Poland) species for a genus, falling back to "Others".
         for val in self.species_dbl.values():
             if val[0].startswith(genus_latin + "_"):
                 return val[2]
         return self._get_int("Others")
-    
+
     def _get_int(self, latin_name: str) -> int:
-        # Looks up the integer code assigned to a given Latin species name in SPECIES_DBL.
         return self._latin_to_int[latin_name]
 
-    def predict(self, pcd: np.ndarray, crs, tree_label: int) -> int:
-        centroid = pcd.mean(axis=0)
-        lat, lon = self.utm_to_latlon(centroid[0], centroid[1], crs=crs)
-        tree_label = self.find_species(lat, lon, tree_label)
-        return tree_label
-
-    def find_species(self, lat: float, lon: float, input_class: int) -> int:
-        # Maps a model-predicted genus class to a specific species int code using BDL area data and fallback rules.
+    def _resolve(self, counts: Counter, input_class: int) -> int:
+        # Core match logic shared by both predict paths.
         genus_latin = self.species_model[input_class][0]
 
         if genus_latin == "Incorrect segmentation":
@@ -202,27 +207,82 @@ class BDLCall():
             return in_area
 
         genus_default = self._default_species_for_genus(genus_latin)
-        
         if self.model_based:
             return genus_default
         return self._most_common(counts) or genus_default
 
+    # ------------------------------------------------------------------
+    # Tile map
+    # ------------------------------------------------------------------
+
+    def build_data_map(self, pcd: np.ndarray, crs) -> None:
+        # Drop stale map before building — no artifacts from a previous file.
+        self._tile_map = None
+        self._tile_origin = None
+        self._tile_crs = None
+
+        xy = pcd[:, :2]
+        x_min, y_min = xy.min(axis=0)
+        x_max, y_max = xy.max(axis=0)
+
+        n_x = max(1, math.ceil((x_max - x_min) / self.size_m))
+        n_y = max(1, math.ceil((y_max - y_min) / self.size_m))
+
+        tile_map: dict = {}
+
+        for ix in range(n_x):
+            for iy in range(n_y):
+                cx = x_min + (ix + 0.5) * self.size_m
+                cy = y_min + (iy + 0.5) * self.size_m
+                lat, lon = self.utm_to_latlon(cx, cy, crs=crs)
+                tile_map[(ix, iy)] = self._count_species_in_area(lat, lon)
+
+        self._tile_map = tile_map
+        self._tile_origin = (x_min, y_min)
+        self._tile_crs = crs
+
+    def _tile_index(self, x: float, y: float) -> tuple:
+        ox, oy = self._tile_origin
+        ix = int((x - ox) / self.size_m)
+        iy = int((y - oy) / self.size_m)
+        # clamp — points exactly on the far edge land in the last tile
+        ix = min(ix, max(k[0] for k in self._tile_map))
+        iy = min(iy, max(k[1] for k in self._tile_map))
+        return (ix, iy)
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _coerce_label(tree_label) -> int:
+        # Accepts int, np.integer, single-element ndarray, or single-element list.
+        if isinstance(tree_label, (np.ndarray, list)):
+            arr = np.asarray(tree_label).ravel()
+            if arr.size != 1:
+                raise ValueError(f"tree_label must be a scalar, got shape {arr.shape}")
+            return int(arr[0])
+        return int(tree_label)
+
+    def predict(self, pcd: np.ndarray, crs, tree_label) -> int:
+        tree_label = self._coerce_label(tree_label)
+
+        centroid = pcd.mean(axis=0)
+
+        if self._tile_map is not None:
+            idx = self._tile_index(centroid[0], centroid[1])
+            counts = self._tile_map[idx]
+        else:
+            lat, lon = self.utm_to_latlon(centroid[0], centroid[1], crs=crs)
+            counts = self._count_species_in_area(lat, lon)
+
+        return self._resolve(counts, tree_label)
+
+    def find_species(self, lat: float, lon: float, input_class: int) -> int:
+        counts = self._count_species_in_area(lat, lon)
+        return self._resolve(counts, input_class)
+
 
 if __name__ == "__main__":
     bdl = BDLCall(size_m=5000, model_based=True)
-    print(bdl.find_species(53.643773,22.465687, 15))
-
-    # size_m powinno być w init 
-    # w find_species powinna być klasa podana jako int
-    # output find_species to int (key z SPECIES_DBL)
-    # int zwrócony przez model -> 
-    # -> szukasz obszaru na którym jest dane drzewo 
-    # -> patrzysz jakie drzewa występują na tym terenie
-    # -> robisz dopasowanie:
-    # --> jeśli masz model zwrócił np. klon: szukasz jakie klony występują na tym obszarze i zwracasz najczęstszy gatunek klona
-    # --> jeśli na tym obszarze nie ma np. klonu a model go zwrócił działasz zależnie od flagi: 
-    # ---> model_based: bool = True: zwracasz klon (ten który w Polsce jest częstszy, dokładana nazwa)
-    # ---> model_based: bool = False: zwracasz najczęstszy gatunek z obszaru
-    # --> jeśli model zwrócił others 15: zwracasz najczęstsze drzewo z obszaru
-    # --> jeśli model zwrócił others 15, ale nie masz danych o obszarze: zwracasz others
-    # --> błędna segmentacja zawsze zwraca błędną segmentację
+    print(bdl.find_species(53.643773, 22.465687, 15))
