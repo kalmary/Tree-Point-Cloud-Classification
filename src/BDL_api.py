@@ -197,8 +197,6 @@ class BDLCall():
         if genus_latin == "Incorrect segmentation":
             return self._get_int(genus_latin)
 
-        counts = self._count_species_in_area(lat, lon)
-
         if genus_latin == "Others":
             return self._most_common(counts) or self._get_int(genus_latin)
 
