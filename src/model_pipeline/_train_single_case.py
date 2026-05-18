@@ -105,7 +105,7 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
 
     weights_t, labels = compute_pos_weights(data_dir=training_dict['data_path_train'],
                                     num_classes=training_dict["num_classes"],
-                                    power=0.05,
+                                    power=0.1,
                                     ignore_index=16)
 
 
@@ -113,7 +113,7 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
 
     weights_v, _ = compute_pos_weights(data_dir=training_dict['data_path_val'],
                                     num_classes=training_dict["num_classes"],
-                                    power=0.05,
+                                    power=0.1,
                                     ignore_index=16)
 
     sampler_t = WeightedRandomSampler(
@@ -159,7 +159,7 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
         yield None, {}
 
 
-    alpha = 0.75
+    alpha = 0.9
     criterion_f_t = FocalLoss(alpha= weights_t.to(device_loss), gamma=training_dict['focal_loss_gamma'], smoothing=0.1).to(device_loss) 
     criterion_f_v = FocalLoss(alpha= weights_v.to(device_loss), gamma=training_dict['focal_loss_gamma'], smoothing=0.1).to(device_loss)
 
@@ -195,7 +195,7 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
     loss_v_hist = []
     acc_v_hist = []
 
-    try: # TODO bring this back
+    try:
         repeat_pbar = tqdm(range(training_dict['train_repeat']), 
                         desc="Training Repetition", 
                         unit="repeat",

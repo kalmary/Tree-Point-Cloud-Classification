@@ -12,4 +12,4 @@ def main(path: str | pth.Path):
         print(label, count)
 
 if __name__ == '__main__':
-    main('/mnt/DATA_SSD/BRIK/TREE_CLASS/GRAJEWO/processed/train')
+    main('/mnt/DATA_SSD/BRIK/TREE_CLASS/GRAJEWO/processed_balanced/test')

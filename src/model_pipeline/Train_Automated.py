@@ -29,7 +29,6 @@ from _train_single_case import train_model
 from utils import load_json, save2json, save_model, convert_str_values
 from utils import Plotter
 
-from model_pipeline.model_test import ResNetClassifier
 from model_pipeline.model_en import EfficientNetClassifier
 
 

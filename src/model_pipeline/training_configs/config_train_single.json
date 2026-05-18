@@ -1,9 +1,9 @@
 {
     "train_repeat": 3,
     "train_repeat_comment": "How many times training is done for the same config, to get average/ best results",
-    "data_path_train": "/mnt/DATA_SSD/BRIK/TREE_CLASS/GRAJEWO/processed/train",
-    "data_path_test": "/mnt/DATA_SSD/BRIK/TREE_CLASS/GRAJEWO/processed/test",
-    "data_path_val": "/mnt/DATA_SSD/BRIK/TREE_CLASS/GRAJEWO/processed/val",
+    "data_path_train": "/mnt/DATA_SSD/BRIK/TREE_CLASS/GRAJEWO/processed_balanced/train",
+    "data_path_test": "/mnt/DATA_SSD/BRIK/TREE_CLASS/GRAJEWO/processed_balanced/test",
+    "data_path_val": "/mnt/DATA_SSD/BRIK/TREE_CLASS/GRAJEWO/processed_balanced/val",
     "num_classes": 16,
     "batch_size": 30,
     "epochs": 80,
