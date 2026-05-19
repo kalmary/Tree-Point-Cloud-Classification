@@ -12,6 +12,7 @@ import argparse
 import logging
 import datetime
 import multiprocessing
+import math
 
 
 import torch
@@ -249,7 +250,7 @@ def test_case(exp_config: dict) -> None:
     exp_config['epochs'] = 2
     
     try:
-        for _, _, _ in train_model(training_dict=exp_config):
+        for _, _ in train_model(training_dict=exp_config):
             pass
     except Exception as e:
         logger.error(f'ERROR: test_case. Error message: {e}')
@@ -384,7 +385,7 @@ def case_based_training(exp_configs: list[dict],
     for i, exp_config in pbar:
         logger.info(f'Case {i+1}/{len(exp_configs)}: {exp_config}')
 
-        for model, result_hist, _ in train_model(training_dict=exp_config):
+        for model, result_hist in train_model(training_dict=exp_config):
             logger.info(f'Single model was generated. val_acc: {result_hist["acc_hist_val"][-1]:.3f}  val_loss: {result_hist["loss_hist_val"][-1]:.3f}')
 
             final_val = result_hist['acc_hist_val'][-1]*0.6 + (1 / (1 + result_hist['loss_hist_val'][-1]))*0.4
@@ -471,7 +472,16 @@ def objective_function(trial: optuna.Trial,
 
         # goal is to maximize val_acc + 1/val_loss
         final_val_accuracy = result_hist['acc_hist_val'][-1]
+        final_train_loss = result_hist['loss_hist'][-1]
         final_val_loss = result_hist['loss_hist_val'][-1]
+
+        if not math.isfinite(final_train_loss) or not math.isfinite(final_val_loss):
+            logger.warning(
+                f'Pruning trial: {trial.number}. Non-finite loss detected. '
+                f'train_loss: {final_train_loss}, val_loss: {final_val_loss}'
+            )
+            trial.report(0.0, step=epoch_idx)
+            raise optuna.exceptions.TrialPruned()
 
         best_val_accuracy = max(best_val_accuracy, final_val_accuracy)
         best_val_loss = min(best_val_loss, final_val_loss)

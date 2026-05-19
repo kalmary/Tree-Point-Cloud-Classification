@@ -105,7 +105,7 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
 
     weights_t, labels = compute_pos_weights(data_dir=training_dict['data_path_train'],
                                     num_classes=training_dict["num_classes"],
-                                    power=0.1,
+                                    power=0.25,
                                     ignore_index=16)
 
 
@@ -113,7 +113,7 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
 
     weights_v, _ = compute_pos_weights(data_dir=training_dict['data_path_val'],
                                     num_classes=training_dict["num_classes"],
-                                    power=0.1,
+                                    power=0.25,
                                     ignore_index=16)
 
     sampler_t = WeightedRandomSampler(
@@ -157,9 +157,10 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
     except Exception as e:
         print(f"Error initializing model: {e}")
         yield None, {}
+        return
 
 
-    alpha = 0.9
+    alpha = 0.75
     criterion_f_t = FocalLoss(alpha= weights_t.to(device_loss), gamma=training_dict['focal_loss_gamma'], smoothing=0.1).to(device_loss) 
     criterion_f_v = FocalLoss(alpha= weights_v.to(device_loss), gamma=training_dict['focal_loss_gamma'], smoothing=0.1).to(device_loss)
 
@@ -245,7 +246,7 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
                     if alpha == 1.:
                         loss_t = loss_f_t
                     else:
-                        loss_a_t = criterion_a_t(emb, model.model.classifier[1].weight, batch_y)
+                        loss_a_t = criterion_a_t(emb, model.get_arcface_weight(), batch_y)
                         loss_t = alpha* loss_f_t + (1 - alpha) * loss_a_t
 
                     loss_t.backward()
@@ -293,7 +294,7 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
                         if alpha==1.:
                             loss_v = loss_f_v
                         else:
-                            loss_a_v = criterion_a_v(emb, model.model.classifier[1].weight, batch_y)
+                            loss_a_v = criterion_a_v(emb, model.get_arcface_weight(), batch_y)
                             loss_v = alpha* loss_f_v + (1 - alpha) * loss_a_v
 
                         accuracy_v = calculate_accuracy(outputs.cpu(), 

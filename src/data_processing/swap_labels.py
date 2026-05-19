@@ -20,4 +20,4 @@ def swap_labels(root: pth.Path) -> None:
         p.rename(p.parent / new_name)
 
 if __name__ == '__main__':
-    swap_labels(pth.Path('/mnt/DATA_SSD/BRIK/TREE_CLASS/GRAJEWO/processed_balanced'))
+    swap_labels(pth.Path('/mnt/DATA_SSD/BRIK/TREE_CLASS/GRAJEWO_OPEN'))

@@ -40,10 +40,10 @@ def plot_cloud(points: np.ndarray, labels: Optional[np.ndarray] = None):
     plotter.deep_clean()
 
 def main():
-    path = "/mnt/DATA_SSD/BRIK/TREE_CLASS/GRAJEWO/processed_balanced/val"
+    path = "/mnt/DATA_SSD/BRIK/TREE_CLASS/GRAJEWO/processed/val"
     path = pth.Path(path)
 
-    label = 16
+    label = 15
     file_paths = [file for file in path.glob("*.npy") if f"_{label}.npy" in file.name]
     for file in file_paths:
         pcd = np.load(file)

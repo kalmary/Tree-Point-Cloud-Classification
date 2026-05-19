@@ -30,7 +30,6 @@ class Dataset(IterableDataset):
                  weights: torch.Tensor = None,
                  shuffle: bool = True,
                  buffer: int = 250,
-                 ignore_index: bool = False,
                  device: Optional[torch.device] = torch.device('cpu')):
 
         super(Dataset).__init__()
