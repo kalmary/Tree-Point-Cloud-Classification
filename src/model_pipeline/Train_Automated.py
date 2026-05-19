@@ -4,6 +4,7 @@ matplotlib.use('Agg')
 
 import pathlib as pth
 import numpy as np
+import pandas as pd
 from pprint import pprint
 from typing import Union, Sequence
 import itertools
@@ -31,6 +32,29 @@ from utils import load_json, save2json, save_model, convert_str_values
 from utils import Plotter
 
 from model_pipeline.model_en import EfficientNetClassifier
+
+
+def save_metric_history_csv(result_hist: dict,
+                            plot_dir: pth.Path,
+                            model_name: str) -> pth.Path:
+    metric_columns = {
+        'loss': result_hist.get('loss_hist'),
+        'loss_val': result_hist.get('loss_hist_val'),
+        'acc_val': result_hist.get('acc_hist_val'),
+    }
+    metric_columns = {
+        metric_name: pd.Series(metric_values)
+        for metric_name, metric_values in metric_columns.items()
+        if metric_values is not None
+    }
+
+    metrics_df = pd.DataFrame(metric_columns)
+    metrics_df.index = metrics_df.index + 1
+    metrics_df.index.name = 'epoch'
+
+    metrics_path = plot_dir.joinpath(f'metrics_{model_name}.csv')
+    metrics_df.to_csv(metrics_path)
+    return metrics_path
 
 
 def check_models(model_configs_paths: list[pth.Path],
@@ -326,6 +350,9 @@ class Checkpoint:
         config_path = dict_files_dir.joinpath(f'{model_path.stem}_config.json')
         save2json(best_config, config_path)
         logger.info(f'New config for model {model_name} saved to: {config_path}')
+
+        metrics_path = save_metric_history_csv(result_hist, plot_dir, model_name)
+        logger.info(f'Metric history for {model_name} saved to: {metrics_path}')
 
         plotter_obj = Plotter(best_config['num_classes'], plots_dir = plot_dir)
         # iterate over every metric to plot it
