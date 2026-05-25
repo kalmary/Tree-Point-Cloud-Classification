@@ -223,6 +223,10 @@ class BDLCall():
         self._tile_origin = None
         self._tile_crs = None
 
+        if points.shape[0] == 0:
+            self._tile_crs = crs
+            return
+
         xy = points[:, :2]
         x_min, y_min = xy.min(axis=0)
         x_max, y_max = xy.max(axis=0)
@@ -267,6 +271,8 @@ class BDLCall():
 
     def predict(self, pcd: np.ndarray, crs, tree_label) -> int:
         tree_label = self._coerce_label(tree_label)
+        if pcd.shape[0] == 0:
+            return self._get_int("Incorrect segmentation")
 
         centroid = pcd.mean(axis=0)
 

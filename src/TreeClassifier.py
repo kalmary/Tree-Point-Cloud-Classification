@@ -54,6 +54,9 @@ class TreeClassifier:
         self._model = _model
         
     def predict(self, cloud: np.ndarray):
+        if cloud.shape[0] == 0:
+            return np.array([15], dtype=np.int64)
+
         cloud = torch.as_tensor(cloud, dtype=torch.float64)
         imgs = cloud2sideViews_torch(cloud, resolution_xy=350)
         if imgs.ndim == 3:
