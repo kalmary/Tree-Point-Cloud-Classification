@@ -27,7 +27,7 @@ OTHERS = None
 OTHERS = 15
 
 def _eval_model(config_dict: dict,
-               model: nn.Module) -> tuple[list, list, np.ndarray, np.ndarray, np.ndarray]:
+               model: nn.Module) -> tuple[float, float, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     
     device_gpu = torch.device('cuda')
     device_cpu = torch.device('cpu')
@@ -99,7 +99,84 @@ def _eval_model(config_dict: dict,
             all_probs = np.concatenate([all_probs, probs.numpy()], axis=0)
             all_predictions.extend(int_preds.numpy())
 
-    return total_loss, total_accuracy, np.asarray(all_labels), all_probs, np.asarray(all_predictions)
+    return (
+        total_loss,
+        total_accuracy,
+        np.asarray(all_labels),
+        all_probs,
+        np.asarray(all_predictions),
+        np.asarray(test_dataset.files),
+    )
+
+
+def prediction_accuracy(predictions: np.ndarray,
+                        labels: np.ndarray,
+                        ignore_index: int | None = None) -> float:
+    predictions = np.asarray(predictions)
+    labels = np.asarray(labels)
+
+    if predictions.shape != labels.shape:
+        raise ValueError(f"predictions shape {predictions.shape} does not match labels shape {labels.shape}")
+
+    if ignore_index is not None:
+        mask = labels != ignore_index
+        predictions = predictions[mask]
+        labels = labels[mask]
+
+    if labels.size == 0:
+        return 0.0
+
+    return float(np.mean(predictions == labels))
+
+
+def bdl_species_to_model_label(species_label: int) -> int:
+    from src.BDL_api import SPECIES_DBL, SPECIES_MODEL
+
+    species_name_by_label = {value[2]: value[0] for value in SPECIES_DBL.values()}
+    model_label_by_genus = {value[0]: label for label, value in SPECIES_MODEL.items()}
+
+    species_name = species_name_by_label[int(species_label)]
+    if species_name in model_label_by_genus:
+        return model_label_by_genus[species_name]
+
+    genus = species_name.split('_', 1)[0]
+    return model_label_by_genus.get(genus, model_label_by_genus['Others'])
+
+
+def load_laz_points_and_crs(laz_path: pth.Path) -> tuple[np.ndarray, object]:
+    import laspy
+
+    laz = laspy.read(laz_path)
+    crs = laz.header.parse_crs()
+    if crs is None:
+        raise ValueError(f"Could not read CRS from {laz_path}")
+
+    points = np.vstack((laz.x, laz.y, laz.z)).transpose()
+    return points, crs
+
+
+def bdl_refined_predictions(predictions: np.ndarray,
+                            sample_paths: np.ndarray,
+                            map_points: np.ndarray,
+                            crs,
+                            size_m: int = 2000,
+                            model_based: bool = False) -> np.ndarray:
+    from src.BDL_api import BDLCall
+
+    tree_bdl = BDLCall(size_m=size_m, model_based=model_based)
+    tree_bdl.build_data_map(points=map_points, crs=crs)
+
+    refined = np.asarray(predictions).copy()
+    for index, (prediction, sample_path) in enumerate(zip(predictions, sample_paths)):
+        tree_points = np.load(sample_path)[:, :3]
+        species_prediction = tree_bdl.predict(
+            pcd=tree_points,
+            tree_label=int(prediction),
+            crs=crs,
+        )
+        refined[index] = bdl_species_to_model_label(species_prediction)
+
+    return refined
 
 def eval_model_front(config_dict: dict,
         model: nn.Module,
@@ -110,8 +187,10 @@ def eval_model_front(config_dict: dict,
 
     plot_dir = paths[1]
 
-    total_loss, total_accuracy, all_labels, all_probs, all_predictions  = _eval_model(config_dict=config_dict,
-                                                                                        model=model)
+    total_loss, total_accuracy, all_labels, all_probs, all_predictions, sample_paths = _eval_model(
+        config_dict=config_dict,
+        model=model,
+    )
     print('MODEL TESTED')
     print('Model path', model_path)
     print('Loss: ', total_loss)
@@ -129,6 +208,33 @@ def eval_model_front(config_dict: dict,
     ClassificationReport(file_path=plot_dir.joinpath(f'classification_report_{model_name}.txt'),
                         pred=all_predictions,
                         target=all_labels)
+
+    laz_path = '/mnt/DATA_SSD/BRIK/GRAJEWO_NOWE/RAW/Grajewo_2026_2.laz'
+    if laz_path:
+        map_points, crs = load_laz_points_and_crs(pth.Path(laz_path))
+        bdl_predictions = bdl_refined_predictions(
+            predictions=all_predictions,
+            sample_paths=sample_paths,
+            map_points=map_points,
+            crs=crs,
+        )
+        bdl_accuracy = prediction_accuracy(
+            predictions=bdl_predictions,
+            labels=all_labels,
+            ignore_index=OTHERS,
+        )
+
+        print('BDL CLASSIFIER ENABLED')
+        print('BDL accuracy: ', bdl_accuracy)
+        print('='*20)
+
+        plotter.cnf_matrix(f'cnf_bdl_{model_name}.png', all_labels, bdl_predictions)
+        ClassificationReport(file_path=plot_dir.joinpath(f'classification_report_bdl_{model_name}.txt'),
+                            pred=bdl_predictions,
+                            target=all_labels)
+    else:
+        print("BDL classifier skipped: set laz_path in eval_model_front to enable it.")
+
 
 def test_function(config_dict: dict,
                 model):
@@ -251,8 +357,5 @@ def main():
 if __name__ == '__main__':
     torch.multiprocessing.set_start_method('spawn')
     main()
-
-
-
 
 

@@ -4,15 +4,15 @@
   "data_path_test": "/mnt/DATA_SSD/BRIK/TREE_CLASS/GRAJEWO_OPEN/test",
   "data_path_val": "/mnt/DATA_SSD/BRIK/TREE_CLASS/GRAJEWO_OPEN/val",
   "num_classes": 16,
-  "batch_size": 40,
+  "batch_size": 32,
   "epochs": 100,
   "learning_rate": 0.0007,
-  "weight_decay": 0.01,
-  "focal_loss_gamma": 1.5,
+  "weight_decay": 0.02,
+  "focal_loss_gamma": 1.0,
   "input_dim": 350,
   "scheduler_params_comment": [],
-  "pc_start": 0.20,
+  "pc_start": 0.1,
   "div_factor": 50,
   "final_div_factor": 1000,
-  "epoch_freeze_model_percent": 45
+  "epoch_freeze_model_percent": 35
 }
