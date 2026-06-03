@@ -16,203 +16,7 @@ neural_net_dir = os.path.dirname(pth.Path(__file__).parent)
 sys.path.append(neural_net_dir)
 
 from utils.pcd_manipulation import rotate_points, tilt_points, transform_points, add_gaussian_noise
-from utils.data_augmentation import cloud2sideViews_torch
-
-#########################################################
-###################### ITERABLE #########################
-#########################################################
-
-class Dataset(IterableDataset):
-
-    def __init__(self,
-                 path_dir: Union[str, pth.Path],
-                 resolution_xy: int,
-                 num_classes: int,
-                 batch_size: int,
-                 weights: torch.Tensor = None,
-                 shuffle: bool = True,
-                 buffer: int = 250,
-                 device: Optional[torch.device] = torch.device('cpu')):
-
-        super(Dataset).__init__()
-
-        self.path = pth.Path(path_dir)
-        self.resolution_xy = resolution_xy
-        self.num_classes = num_classes
-        self.batch_size = batch_size
-        self.shuffle = shuffle
-        self.device = device
-        self.buffer_size = buffer
-        self.weights = None
-
-        if weights is not None:
-            self.weights = weights.cpu().numpy()
-            self.weights = self.weights * 10
-            self.weights = self.weights.astype(np.int32).clip(min=1)
-            self.weights_dict = OrderedDict()
-            for i, weight in enumerate(self.weights):
-                self.weights_dict[i] = weight.item()
-
-    def _iter_samples(self):
-        """Yields (xyz: np.ndarray shape (N,3), label: int) from both .npy and .h5 files."""
-
-        npy_paths = list(self.path.rglob('*.npy'))
-        h5_paths  = list(self.path.rglob('*.h5'))
-
-        worker_info = get_worker_info()
-        if worker_info is not None:
-            npy_paths = npy_paths[worker_info.id::worker_info.num_workers]
-            h5_paths  = h5_paths[worker_info.id::worker_info.num_workers]
-
-        if self.shuffle:
-            random.shuffle(npy_paths)
-
-        for path in npy_paths:
-            label = int(path.stem.rsplit('_', 1)[-1])
-            if label >= self.num_classes:
-                continue
-            arr   = np.load(path)
-            yield arr[:, :3], label
-
-        if self.shuffle:
-            random.shuffle(h5_paths)
-
-        for path in h5_paths:
-            with h5py.File(path, 'r') as f:
-                keys = list(f.keys())
-                if self.shuffle:
-                    random.shuffle(keys)
-                for key in keys:
-                    chunk = f[key][:]           # (B, N, 4)
-                    indices = list(range(chunk.shape[0]))
-                    if self.shuffle:
-                        random.shuffle(indices)
-                    for i in indices:
-                        row   = chunk[i]        # (N, 4)
-                        label = int(row[0, 3])  # all points in this tree share the same label
-                        yield row[:, :3], label
-
-    def _key_streamer(self):
-        worker_buffer = []
-
-        for xyz, label in self._iter_samples():
-            if self.shuffle and self.weights is not None:
-                repeat = self.weights_dict.get(label, 1)
-                for _ in range(repeat):
-                    worker_buffer.append((xyz, label))
-
-                if len(worker_buffer) >= self.buffer_size:
-                    random.shuffle(worker_buffer)
-                    for item in worker_buffer:
-                        yield item
-                    worker_buffer.clear()
-            else:
-                yield (xyz, label)
-
-        if worker_buffer:
-            random.shuffle(worker_buffer)
-            for item in worker_buffer:
-                yield item
-            worker_buffer.clear()
-
-    def _process_cloud(self):
-        for xyz, label in self._key_streamer():
-            label = torch.tensor(label).long()
-
-            cloud_tensor = torch.from_numpy(xyz).float().to(self.device)
-
-            if self.shuffle:
-                cloud_tensor = add_gaussian_noise(cloud_tensor, std=0.05)
-                cloud_tensor = transform_points(cloud_tensor, device=self.device)
-                cloud_tensor = rotate_points(cloud_tensor, device=self.device)
-                cloud_tensor = tilt_points(cloud_tensor, max_x_tilt_degrees=10, max_y_tilt_degrees=10, device=self.device)
-
-            cloud_tensor = cloud2sideViews_torch(points=cloud_tensor, resolution_xy=self.resolution_xy)
-
-            yield cloud_tensor.cpu(), label
-
-    def __iter__(self):
-        cloud_batch = []
-        label_batch = []
-
-        for cloud, label in self._process_cloud():
-            cloud_batch.append(cloud.unsqueeze(0))
-            label_batch.append(label)
-
-            if len(label_batch) >= self.batch_size:
-                yield torch.vstack(cloud_batch).float(), torch.stack(label_batch).long()
-                cloud_batch, label_batch = [], []
-
-        if label_batch:
-            yield torch.vstack(cloud_batch).float(), torch.stack(label_batch).long()
-
-
-#########################################################
-####################### CLASSIC #########################
-#########################################################
-
-
-class NpyDataset(torch.utils.data.Dataset):
- 
-    def __init__(self,
-                 path_dir: Union[str, pth.Path],
-                 resolution_xy: int = 350,
-                 training: bool = True,
-                 ignore_index: Optional[int] = None,
-                 device: Optional[torch.device] = torch.device('cpu')):
- 
-        self.path = pth.Path(path_dir)
-        self.resolution_xy = resolution_xy
-        self.training = training
-        self.device = device
-        self.files = sorted(self.path.rglob('*.npy'))
-
-        if ignore_index is not None:
-            self.files = [f for f in self.files if int(f.stem.rsplit('_', 1)[-1]) < ignore_index]
-        else:
-            self.files = sorted(self.path.rglob('*.npy'))
- 
-    def __len__(self):
-        return len(self.files)
- 
-    def __getitem__(self, idx):
-        path  = self.files[idx]
-        label = int(path.stem.rsplit('_', 1)[-1])
-    
-        xyz   = np.load(path)[:, :3]
-
-        # continue if height<1.5m
-        if xyz[:, 2].max() - xyz[:, 2].min() < 1.5:
-            continue
- 
-        cloud = torch.from_numpy(xyz).float().to(self.device)
-        label = torch.tensor(label).long()
- 
-        if self.training:
-            cloud = add_gaussian_noise(cloud, std=0.02)
-            cloud = transform_points(cloud, device=self.device)
-            cloud = rotate_points(cloud, device=self.device)
-            cloud = tilt_points(cloud, max_x_tilt_degrees=15, max_y_tilt_degrees=15, device=self.device)
-
-        cloud = cloud2sideViews_torch(cloud, resolution_xy=self.resolution_xy)
-
-        return cloud.cpu(), label
-    
-
-
-
-import pathlib as pth
-from typing import Optional, Union
-
-import numpy as np
-import torch
-
-import pathlib as pth
-from typing import Optional, Union
-
-import numpy as np
-import torch
-
+from utils.data_augmentation import cloud2sideViews_torch, voxel_tree_skeleton_torch
 
 def _rand_bool(p: float, device: torch.device) -> bool:
     if p <= 0.0:
@@ -636,7 +440,8 @@ def grajewo_domain_augment(
     points = _resample_points(points, n_points=n_points)
 
     return points
-    
+
+
 class NpyDatasetAug(torch.utils.data.Dataset):
     def __init__(
         self,
@@ -647,6 +452,14 @@ class NpyDatasetAug(torch.utils.data.Dataset):
         device: Optional[torch.device] = torch.device("cpu"),
         n_points: int = 0,
         use_domain_aug: bool = True,
+
+        # Skeleton settings.
+        use_skeleton: bool = True,
+        skeleton_voxel_size: float = 1.0,
+        skeleton_connect_radius: float | None = 5.0,
+        skeleton_min_branch_length: float = 2.0,
+        skeleton_simplify_spacing: float = 3.0,
+        skeleton_sample_spacing: float = 0.5,
     ):
         self.path = pth.Path(path_dir)
         self.resolution_xy = resolution_xy
@@ -655,6 +468,13 @@ class NpyDatasetAug(torch.utils.data.Dataset):
         self.n_points = n_points
         self.use_domain_aug = use_domain_aug
         self.ignore_index = ignore_index
+
+        self.use_skeleton = use_skeleton
+        self.skeleton_voxel_size = skeleton_voxel_size
+        self.skeleton_connect_radius = skeleton_connect_radius
+        self.skeleton_min_branch_length = skeleton_min_branch_length
+        self.skeleton_simplify_spacing = skeleton_simplify_spacing
+        self.skeleton_sample_spacing = skeleton_sample_spacing
 
         self.files = sorted(self.path.rglob("*.npy"))
 
@@ -689,9 +509,6 @@ class NpyDatasetAug(torch.utils.data.Dataset):
 
         xyz = np.load(path, allow_pickle=False)[:, :3]
 
-
-
-
         cloud = torch.from_numpy(xyz).float().to(self.device)
         cloud = _safe_points(cloud)
 
@@ -712,18 +529,47 @@ class NpyDatasetAug(torch.utils.data.Dataset):
                 device=self.device,
             )
 
-            if self.use_domain_aug:
-                cloud = grajewo_domain_augment(
-                    cloud,
-                    n_points=self.n_points,
-                )
+        if self.use_domain_aug:
+            cloud = grajewo_domain_augment(
+                cloud,
+                n_points=self.n_points,
+            )
 
         # Final enforcement. If n_points == 0, this does nothing.
         cloud = _resample_points(cloud, n_points=self.n_points)
+        cloud = _safe_points(cloud)
 
-        cloud = cloud2sideViews_torch(
+        pcd_views = cloud2sideViews_torch(
             cloud,
             resolution_xy=self.resolution_xy,
         )
 
-        return cloud.cpu(), label
+        if not self.use_skeleton:
+            return pcd_views.cpu(), label
+
+        skeleton_points, skeleton_edges = voxel_tree_skeleton_torch(
+            cloud,
+            voxel_size=self.skeleton_voxel_size,
+            connect_radius=self.skeleton_connect_radius,
+            min_branch_length=self.skeleton_min_branch_length,
+            simplify_spacing=self.skeleton_simplify_spacing,
+        )
+
+        skeleton_points = _sample_skeleton_edges_torch(
+            points=skeleton_points,
+            edges=skeleton_edges,
+            spacing=self.skeleton_sample_spacing,
+        )
+
+        skeleton_views = cloud2sideViews_torch_with_reference_cube(
+            points=skeleton_points,
+            reference_points=cloud,
+            resolution_xy=self.resolution_xy,
+        )
+
+        sample = torch.stack(
+            [view for pair in zip(pcd_views.unbind(0), skeleton_views.unbind(0)) for view in pair],
+            dim=0,
+        )
+
+        return sample.cpu(), label
