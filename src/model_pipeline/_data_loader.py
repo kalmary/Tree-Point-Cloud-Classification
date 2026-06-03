@@ -456,9 +456,9 @@ class NpyDatasetAug(torch.utils.data.Dataset):
         # Skeleton settings.
         use_skeleton: bool = True,
         skeleton_voxel_size: float = 1.0,
-        skeleton_connect_radius: float | None = 5.0,
-        skeleton_min_branch_length: float = 2.0,
-        skeleton_simplify_spacing: float = 3.0,
+        skeleton_connect_radius: float | None = 4.0,
+        skeleton_min_branch_length: float = 1.5,
+        skeleton_simplify_spacing: float = 2.5,
         skeleton_sample_spacing: float = 0.05,
     ):
         self.path = pth.Path(path_dir)
