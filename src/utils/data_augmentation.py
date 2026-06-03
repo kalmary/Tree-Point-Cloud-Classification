@@ -17,6 +17,133 @@ def gaussian_blur(img: Union[torch.Tensor, np.ndarray], kernel_size=(5, 5), sigm
 
     return blurred_img.to(img.device)
 
+def cloud2sideViews_torch_with_reference_cube(
+    points: torch.Tensor,
+    reference_points: torch.Tensor,
+    resolution_xy: int,
+    margin_ratio: float = 0.05,
+) -> torch.Tensor:
+    if resolution_xy is None:
+        raise ValueError("resolution_xy must not be None")
+
+    if reference_points.ndim != 2 or reference_points.shape[1] < 3:
+        raise ValueError(
+            f"reference_points must have shape (N, >=3), got {tuple(reference_points.shape)}"
+        )
+
+    if points.ndim != 2 or points.shape[1] < 3:
+        raise ValueError(f"points must have shape (N, >=3), got {tuple(points.shape)}")
+
+    if points.shape[0] == 0:
+        return torch.zeros(
+            (5, resolution_xy, resolution_xy),
+            dtype=torch.float32,
+            device=reference_points.device,
+        )
+
+    points = points[:, :3].to(
+        device=reference_points.device,
+        dtype=torch.float64,
+    )
+
+    reference_points = reference_points[:, :3].to(
+        device=reference_points.device,
+        dtype=torch.float64,
+    )
+
+    min_xyz = reference_points.min(dim=0).values
+    max_xyz = reference_points.max(dim=0).values
+
+    center = (min_xyz + max_xyz) / 2.0
+    max_range = (max_xyz - min_xyz).max()
+    cube_half = max_range / 2.0 * (1.0 + 2.0 * margin_ratio)
+
+    cube_min = center - cube_half
+    cube_max = center + cube_half
+
+    def to_grid(val, min_val, max_val):
+        return torch.clamp(
+            ((val - min_val) / (max_val - min_val + 1e-8) * (resolution_xy - 1)).long(),
+            0,
+            resolution_xy - 1,
+        )
+
+    x = points[:, 0]
+    y = points[:, 1]
+    z = points[:, 2]
+
+    gx = to_grid(x, cube_min[0], cube_max[0])
+    gy = to_grid(y, cube_min[1], cube_max[1])
+    gz = to_grid(z, cube_min[2], cube_max[2])
+
+    views = []
+
+    def build_depth_map(indices_2d, distances, flip_y=False, flip_x=False):
+        y_idx, x_idx = indices_2d
+
+        if flip_y:
+            y_idx = resolution_xy - 1 - y_idx
+
+        if flip_x:
+            x_idx = resolution_xy - 1 - x_idx
+
+        flat_indices = y_idx * resolution_xy + x_idx
+
+        depth_map = torch.full(
+            (resolution_xy * resolution_xy,),
+            float("inf"),
+            dtype=torch.float64,
+            device=distances.device,
+        )
+
+        depth_map = torch.scatter_reduce(
+            depth_map,
+            0,
+            flat_indices,
+            distances,
+            reduce="amin",
+            include_self=True,
+        )
+
+        img = depth_map.view(resolution_xy, resolution_xy)
+        valid_mask = torch.isfinite(img)
+
+        if torch.any(valid_mask):
+            values = img[valid_mask]
+
+            min_val = values.min()
+            max_val = values.max()
+
+            # Same convention as cloud2sideViews_torch:
+            # smaller distance to viewer -> brighter.
+            normalised = (max_val - values) / (max_val - min_val + 1e-8)
+            normalised = normalised * (1.0 - 1.0 / 255.0) + (1.0 / 255.0)
+
+            img = img.clone()
+            img[valid_mask] = normalised
+            img[~valid_mask] = 0.0
+        else:
+            img = torch.zeros_like(img)
+
+        return img.to(dtype=torch.float32)
+
+    dist_top = cube_max[2] - z
+    views.append(build_depth_map((gy, gx), dist_top))
+
+    dist_front = cube_max[1] - y
+    views.append(build_depth_map((gz, gx), dist_front, flip_y=True))
+
+    dist_back = y - cube_min[1]
+    views.append(build_depth_map((gz, gx), dist_back, flip_y=True, flip_x=True))
+
+    dist_left = cube_max[0] - x
+    views.append(build_depth_map((gz, gy), dist_left, flip_y=True))
+
+    dist_right = x - cube_min[0]
+    views.append(build_depth_map((gz, gy), dist_right, flip_y=True, flip_x=True))
+
+    return torch.stack(views, dim=0).to(dtype=torch.float32)
+
 def cloud2sideViews_torch(points: torch.Tensor,
                        resolution_xy: int | None = None,
                        margin_ratio: float = 0.05) -> torch.Tensor:
@@ -361,6 +488,64 @@ def _radius_edges_from_voxels_torch(
         )
 
     return torch.cat(edges_parts, dim=0), torch.cat(d2_parts, dim=0)
+
+
+def _sample_skeleton_edges_torch(
+    points: torch.Tensor,
+    edges: torch.Tensor,
+    spacing: float,
+) -> torch.Tensor:
+    if points.ndim != 2 or points.shape[1] < 3:
+        raise ValueError(f"points must have shape (N, >=3), got {tuple(points.shape)}")
+
+    points = points[:, :3]
+
+    if points.shape[0] == 0:
+        return points
+
+    if edges.numel() == 0:
+        return points
+
+    if edges.ndim != 2 or edges.shape[1] != 2:
+        raise ValueError(f"edges must have shape (E, 2), got {tuple(edges.shape)}")
+
+    valid = (
+        (edges[:, 0] >= 0)
+        & (edges[:, 0] < points.shape[0])
+        & (edges[:, 1] >= 0)
+        & (edges[:, 1] < points.shape[0])
+    )
+
+    edges = edges[valid]
+
+    if edges.shape[0] == 0:
+        return points
+
+    if spacing <= 0.0:
+        return points
+
+    sampled_parts = [points]
+
+    p0 = points[edges[:, 0]]
+    p1 = points[edges[:, 1]]
+
+    lengths = torch.linalg.norm(p1 - p0, dim=1)
+    counts = torch.ceil(lengths / spacing).long() + 1
+    counts = torch.clamp(counts, min=2)
+
+    for a, b, count in zip(p0, p1, counts):
+        t = torch.linspace(
+            0.0,
+            1.0,
+            int(count.item()),
+            device=points.device,
+            dtype=points.dtype,
+        )
+
+        segment_points = a[None, :] * (1.0 - t[:, None]) + b[None, :] * t[:, None]
+        sampled_parts.append(segment_points)
+
+    return torch.cat(sampled_parts, dim=0)
 
 def _minimum_spanning_forest_torch(
     edges: torch.Tensor,
