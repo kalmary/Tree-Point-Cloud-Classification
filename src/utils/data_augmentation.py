@@ -490,63 +490,6 @@ def _radius_edges_from_voxels_torch(
     return torch.cat(edges_parts, dim=0), torch.cat(d2_parts, dim=0)
 
 
-def _sample_skeleton_edges_torch(
-    points: torch.Tensor,
-    edges: torch.Tensor,
-    spacing: float,
-) -> torch.Tensor:
-    if points.ndim != 2 or points.shape[1] < 3:
-        raise ValueError(f"points must have shape (N, >=3), got {tuple(points.shape)}")
-
-    points = points[:, :3]
-
-    if points.shape[0] == 0:
-        return points
-
-    if edges.numel() == 0:
-        return points
-
-    if edges.ndim != 2 or edges.shape[1] != 2:
-        raise ValueError(f"edges must have shape (E, 2), got {tuple(edges.shape)}")
-
-    valid = (
-        (edges[:, 0] >= 0)
-        & (edges[:, 0] < points.shape[0])
-        & (edges[:, 1] >= 0)
-        & (edges[:, 1] < points.shape[0])
-    )
-
-    edges = edges[valid]
-
-    if edges.shape[0] == 0:
-        return points
-
-    if spacing <= 0.0:
-        return points
-
-    sampled_parts = [points]
-
-    p0 = points[edges[:, 0]]
-    p1 = points[edges[:, 1]]
-
-    lengths = torch.linalg.norm(p1 - p0, dim=1)
-    counts = torch.ceil(lengths / spacing).long() + 1
-    counts = torch.clamp(counts, min=2)
-
-    for a, b, count in zip(p0, p1, counts):
-        t = torch.linspace(
-            0.0,
-            1.0,
-            int(count.item()),
-            device=points.device,
-            dtype=points.dtype,
-        )
-
-        segment_points = a[None, :] * (1.0 - t[:, None]) + b[None, :] * t[:, None]
-        sampled_parts.append(segment_points)
-
-    return torch.cat(sampled_parts, dim=0)
-
 def _minimum_spanning_forest_torch(
     edges: torch.Tensor,
     d2: torch.Tensor,
