@@ -459,7 +459,7 @@ class NpyDatasetAug(torch.utils.data.Dataset):
         skeleton_connect_radius: float | None = 5.0,
         skeleton_min_branch_length: float = 2.0,
         skeleton_simplify_spacing: float = 3.0,
-        skeleton_sample_spacing: float = 0.5,
+        skeleton_sample_spacing: float = 0.05,
     ):
         self.path = pth.Path(path_dir)
         self.resolution_xy = resolution_xy
