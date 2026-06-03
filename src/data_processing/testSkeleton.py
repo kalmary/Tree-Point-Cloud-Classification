@@ -929,7 +929,7 @@ def cloud2sideViews_torch(points: torch.Tensor,
 
 def main():
     import pathlib as pth
-    path = pth.Path("/mnt/DATA_SSD/BRIK/TREE_CLASS/decimated/val/13353_0.npy")
+    path = pth.Path("/mnt/SSD_EXT4_1TB/DATA/tree_data/FULL_LAZ/cut/07-45_tile_000_010.npy")
 
     pcd = np.load(path)[: , :3]
 

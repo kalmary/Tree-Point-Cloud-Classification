@@ -10,7 +10,7 @@
         50,
         10
     ],
-    "input_dim": 300,
+    "input_dim": 256,
     "epochs": [
         25,
         100,
