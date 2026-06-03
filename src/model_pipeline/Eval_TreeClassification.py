@@ -26,6 +26,33 @@ from utils import Plotter, ClassificationReport
 OTHERS = None
 OTHERS = 15
 
+def voxel_subsample_vectorized(xyz, voxel_size=0.25):
+    if xyz.shape[0] == 0:
+        return np.zeros(0, dtype=bool)
+    xyz -= xyz.mean(axis =0)
+
+    keys     = np.floor(xyz / voxel_size).astype(np.int32)
+    centers  = (keys + 0.5) * voxel_size
+    dists_sq = np.sum((xyz - centers) ** 2, axis=1)
+
+    keys_min  = keys.min(axis=0)
+    keys      = keys - keys_min
+    key_range = keys.max(axis=0) + 1
+
+    key_range = key_range.astype(np.int64)
+    assert np.prod(key_range) < np.iinfo(np.int64).max, "key encoding overflow"
+    strides = np.cumprod(np.r_[1, key_range[:0:-1]], dtype=np.int64)[::-1]
+    key_enc = keys.astype(np.int64) @ strides
+    
+    order      = np.lexsort((dists_sq, key_enc))
+    key_sorted = key_enc[order]
+    _, first   = np.unique(key_sorted, return_index=True)
+    chosen     = order[first]
+
+    mask = np.zeros(xyz.shape[0], dtype=bool)
+    mask[chosen] = True
+    return mask
+
 def _eval_model(config_dict: dict,
                model: nn.Module) -> tuple[float, float, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     
@@ -74,7 +101,7 @@ def _eval_model(config_dict: dict,
             outputs = model(batch_x)
 
             if ignore_index is not None:
-                mask = batch_y != ignore_index
+                mask = batch_y < ignore_index
                 if mask.any():
                     loss = criterion(outputs.cpu()[mask], batch_y.cpu()[mask])
                     accuracy = calculate_accuracy(outputs.cpu()[mask], batch_y.cpu()[mask])
@@ -104,8 +131,7 @@ def _eval_model(config_dict: dict,
         total_accuracy,
         np.asarray(all_labels),
         all_probs,
-        np.asarray(all_predictions),
-        np.asarray(test_dataset.files),
+        np.asarray(all_predictions)
     )
 
 
@@ -119,7 +145,7 @@ def prediction_accuracy(predictions: np.ndarray,
         raise ValueError(f"predictions shape {predictions.shape} does not match labels shape {labels.shape}")
 
     if ignore_index is not None:
-        mask = labels != ignore_index
+        mask = labels < ignore_index
         predictions = predictions[mask]
         labels = labels[mask]
 
@@ -132,15 +158,18 @@ def prediction_accuracy(predictions: np.ndarray,
 def bdl_species_to_model_label(species_label: int) -> int:
     from src.BDL_api import SPECIES_DBL, SPECIES_MODEL
 
-    species_name_by_label = {value[2]: value[0] for value in SPECIES_DBL.values()}
-    model_label_by_genus = {value[0]: label for label, value in SPECIES_MODEL.items()}
+    model_label_by_latin_name = {value[0]: label for label, value in SPECIES_MODEL.items()}
 
-    species_name = species_name_by_label[int(species_label)]
-    if species_name in model_label_by_genus:
-        return model_label_by_genus[species_name]
+    species_model_label_by_bdl_label = {}
+    for species_data in SPECIES_DBL.values():
+        species_name = species_data[0]
+        genus = species_name.split('_', 1)[0]
+        species_model_label_by_bdl_label[species_data[2]] = model_label_by_latin_name.get(
+            species_name,
+            model_label_by_latin_name.get(genus, model_label_by_latin_name['Others']),
+        )
 
-    genus = species_name.split('_', 1)[0]
-    return model_label_by_genus.get(genus, model_label_by_genus['Others'])
+    return species_model_label_by_bdl_label[int(species_label)]
 
 
 def load_laz_points_and_crs(laz_path: pth.Path) -> tuple[np.ndarray, object]:
@@ -156,10 +185,9 @@ def load_laz_points_and_crs(laz_path: pth.Path) -> tuple[np.ndarray, object]:
 
 
 def bdl_refined_predictions(predictions: np.ndarray,
-                            sample_paths: np.ndarray,
                             map_points: np.ndarray,
                             crs,
-                            size_m: int = 2000,
+                            size_m: int = 5000,
                             model_based: bool = False) -> np.ndarray:
     from src.BDL_api import BDLCall
 
@@ -167,10 +195,11 @@ def bdl_refined_predictions(predictions: np.ndarray,
     tree_bdl.build_data_map(points=map_points, crs=crs)
 
     refined = np.asarray(predictions).copy()
-    for index, (prediction, sample_path) in enumerate(zip(predictions, sample_paths)):
-        tree_points = np.load(sample_path)[:, :3]
+    pbar = tqdm(enumerate(predictions), total=predictions.shape[0], desc="Refining predictions with BDL")
+
+    for index, prediction in pbar:
         species_prediction = tree_bdl.predict(
-            pcd=tree_points,
+            pcd=map_points,
             tree_label=int(prediction),
             crs=crs,
         )
@@ -187,7 +216,7 @@ def eval_model_front(config_dict: dict,
 
     plot_dir = paths[1]
 
-    total_loss, total_accuracy, all_labels, all_probs, all_predictions, sample_paths = _eval_model(
+    total_loss, total_accuracy, all_labels, all_probs, all_predictions = _eval_model(
         config_dict=config_dict,
         model=model,
     )
@@ -212,9 +241,11 @@ def eval_model_front(config_dict: dict,
     laz_path = '/mnt/DATA_SSD/BRIK/GRAJEWO_NOWE/RAW/Grajewo_2026_2.laz'
     if laz_path:
         map_points, crs = load_laz_points_and_crs(pth.Path(laz_path))
+        mask = voxel_subsample_vectorized(map_points.copy(), voxel_size=1.)
+        map_points = map_points[mask]
+
         bdl_predictions = bdl_refined_predictions(
             predictions=all_predictions,
-            sample_paths=sample_paths,
             map_points=map_points,
             crs=crs,
         )
@@ -357,5 +388,3 @@ def main():
 if __name__ == '__main__':
     torch.multiprocessing.set_start_method('spawn')
     main()
-
-

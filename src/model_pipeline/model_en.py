@@ -105,21 +105,14 @@ class EfficientNetClassifier(nn.Module):
     def get_total_params(self):
         return sum(p.numel() for p in self.parameters())
 
-    def get_arcface_weight(self):
-        return self.model.classifier[-1].weight
-
     def forward(self, x, targets: Optional[torch.Tensor] = None):
         feat = self.model.features(x)
         feat = self.model.avgpool(feat)
         feat = feat.flatten(1)
-        classifier_layers = list(self.model.classifier.children())
-        emb = feat
-        for layer in classifier_layers[:-1]:
-            emb = layer(emb)
-        logits = classifier_layers[-1](emb)
+        logits = self.model.classifier(feat)
         if targets is None:
             return logits
-        return logits, emb
+        return logits, feat
 
 def test_model():
     # for version, (model_fn, weights, stored_val) in EfficientNetClassifier.MODEL_REGISTRY.items():
