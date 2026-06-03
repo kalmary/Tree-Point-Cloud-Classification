@@ -221,9 +221,6 @@ def cloud2sideViews_torch(points: torch.Tensor,
 
         return torch.stack(views, dim=0).type(torch.float32)
 
-import torch
-
-
 def voxel_tree_skeleton_torch(
     xyz: torch.Tensor,
     voxel_size: float = 1.5,

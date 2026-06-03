@@ -2,13 +2,10 @@ from __future__ import annotations
 
 import pathlib as pth
 import numpy as np
-import h5py
 
-import random
-from typing import Union, OrderedDict, Optional
+from typing import Union, Optional
 
 import torch
-from torch.utils.data import IterableDataset, get_worker_info
 
 import os
 import sys
@@ -16,7 +13,12 @@ neural_net_dir = os.path.dirname(pth.Path(__file__).parent)
 sys.path.append(neural_net_dir)
 
 from utils.pcd_manipulation import rotate_points, tilt_points, transform_points, add_gaussian_noise
-from utils.data_augmentation import *
+from utils.data_augmentation import (
+    cloud2sideViews_torch,
+    cloud2sideViews_torch_with_reference_cube,
+    voxel_tree_skeleton_torch,
+    _sample_skeleton_edges_torch,
+)
 
 def _rand_bool(p: float, device: torch.device) -> bool:
     if p <= 0.0:
