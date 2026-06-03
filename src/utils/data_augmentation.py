@@ -188,6 +188,31 @@ def voxel_tree_skeleton_torch(
 
     return points, edges
 
+def _half_neighbor_offsets_torch(
+    radius_voxels: int,
+    voxel_size: float,
+    radius2: float,
+) -> list[tuple[int, int, int]]:
+    offsets = []
+
+    for dx in range(-radius_voxels, radius_voxels + 1):
+        for dy in range(-radius_voxels, radius_voxels + 1):
+            for dz in range(-radius_voxels, radius_voxels + 1):
+                if dx == 0 and dy == 0 and dz == 0:
+                    continue
+
+                if (dx, dy, dz) <= (0, 0, 0):
+                    continue
+
+                offset_d2 = (dx * dx + dy * dy + dz * dz) * voxel_size * voxel_size
+
+                if offset_d2 > radius2:
+                    continue
+
+                offsets.append((dx, dy, dz))
+
+    return offsets
+
 def _voxel_means_torch(
     xyz: torch.Tensor,
     voxel_size: float,
