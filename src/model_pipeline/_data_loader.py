@@ -180,10 +180,6 @@ class NpyDataset(torch.utils.data.Dataset):
         label = int(path.stem.rsplit('_', 1)[-1])
     
         xyz   = np.load(path)[:, :3]
-
-        # continue if height<1.5m
-        if xyz[:, 2].max() - xyz[:, 2].min() < 1.5:
-            continue
  
         cloud = torch.from_numpy(xyz).float().to(self.device)
         label = torch.tensor(label).long()
