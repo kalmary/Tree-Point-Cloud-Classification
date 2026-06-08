@@ -71,17 +71,19 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
     #                        pin_memory=False)
     
 
-    train_dataset = NpyDataset(path_dir=training_dict['data_path_train'],
+    train_dataset = NpyDatasetAug(path_dir=training_dict['data_path_train'],
                                resolution_xy=training_dict['input_dim'],
                                training=True,
-                               ignore_index=16,
-                               device=device_loader)
+                               ignore_index=training_dict['num_classes'],
+                               device=device_loader,
+                               use_domain_aug=True)
     
-    val_dataset = NpyDataset(path_dir=training_dict['data_path_val'],
+    val_dataset = NpyDatasetAug(path_dir=training_dict['data_path_val'],
                             resolution_xy=training_dict['input_dim'],
                             training=False,
-                            ignore_index=16,
-                            device=device_loader)
+                            ignore_index=training_dict['num_classes'],
+                            device=device_loader,
+                            use_domain_aug=True)
     
     trainLoader = DataLoader(
         train_dataset,
@@ -105,16 +107,16 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
 
     weights_t, labels = compute_pos_weights(data_dir=training_dict['data_path_train'],
                                     num_classes=training_dict["num_classes"],
-                                    power=0.25,
-                                    ignore_index=16)
+                                    power=0.35,
+                                    ignore_index=training_dict["num_classes"])
 
 
     weights_t_samples = weights_t[labels]
 
     weights_v, _ = compute_pos_weights(data_dir=training_dict['data_path_val'],
                                     num_classes=training_dict["num_classes"],
-                                    power=0.25,
-                                    ignore_index=16)
+                                    power=0.35,
+                                    ignore_index=training_dict["num_classes"])
 
     sampler_t = WeightedRandomSampler(
         weights=weights_t_samples,
@@ -135,7 +137,6 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
     total_t = get_dataset_len(trainLoader)
     total_v = get_dataset_len(valLoader)
 
-    # print("model_config", training_dict['model_config'])
 
     try:
         model = EfficientNetClassifier(config=training_dict['model_config'], num_classes=training_dict['num_classes']).to(training_dict['device'])
@@ -159,22 +160,9 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
         yield None, {}
         return
 
-
-    alpha = 0.75
     criterion_f_t = FocalLoss(alpha= weights_t.to(device_loss), gamma=training_dict['focal_loss_gamma'], smoothing=0.1).to(device_loss) 
     criterion_f_v = FocalLoss(alpha= weights_v.to(device_loss), gamma=training_dict['focal_loss_gamma'], smoothing=0.1).to(device_loss)
 
-    criterion_a_t = ArcFaceFocalLoss(alpha = weights_t.to(device=device_loss),
-                                     gamma=training_dict['focal_loss_gamma'],
-                                     smoothing=0.1, 
-                                     margin=0.25,
-                                     scale=16.)
-    
-    criterion_a_v = ArcFaceFocalLoss(alpha = weights_v.to(device=device_loss),
-                                     gamma=training_dict['focal_loss_gamma'],
-                                     smoothing=0.1, 
-                                     margin=0.25,
-                                     scale=16.)
 
     optimizer = optim.AdamW(model.parameters(), lr = training_dict['learning_rate'], weight_decay=training_dict['weight_decay'])
 
@@ -236,18 +224,19 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
                     batch_y = batch_y.to(training_dict['device'])
 
                     optimizer.zero_grad()
-                    outputs, emb = model(batch_x, targets=batch_y)
+                    # outputs, emb = model(batch_x, targets=batch_y)
+                    outputs = model(batch_x)
 
                     outputs = outputs.to(device_loss)
-                    emb = emb.to(device_loss)
+                    # emb = emb.to(device_loss)
                     batch_y = batch_y.to(device_loss)
 
-                    loss_f_t = criterion_f_t(outputs, batch_y)
-                    if alpha == 1.:
-                        loss_t = loss_f_t
-                    else:
-                        loss_a_t = criterion_a_t(emb, model.get_arcface_weight(), batch_y)
-                        loss_t = alpha* loss_f_t + (1 - alpha) * loss_a_t
+                    loss_t = criterion_f_t(outputs, batch_y)
+                    # if alpha == 1.:
+                    #     loss_t = loss_f_t
+                    # else:
+                    #     # loss_a_t = criterion_a_t(emb, model.get_arcface_weight(), batch_y)
+                    #     loss_t = alpha* loss_f_t + (1 - alpha) * loss_a_t
 
                     loss_t.backward()
                     optimizer.step()
@@ -290,12 +279,12 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
                         batch_y = batch_y.to(device_loss)
 
 
-                        loss_f_v = criterion_f_v(outputs, batch_y)
-                        if alpha==1.:
-                            loss_v = loss_f_v
-                        else:
-                            loss_a_v = criterion_a_v(emb, model.get_arcface_weight(), batch_y)
-                            loss_v = alpha* loss_f_v + (1 - alpha) * loss_a_v
+                        loss_v = criterion_f_v(outputs, batch_y)
+                        # if alpha==1.:
+                        #     loss_v = loss_f_v
+                        # else:
+                        #     loss_a_v = criterion_a_v(emb, model.get_arcface_weight(), batch_y)
+                        #     loss_v = alpha* loss_f_v + (1 - alpha) * loss_a_v
 
                         accuracy_v = calculate_accuracy(outputs.cpu(), 
                                                                 batch_y.cpu())
