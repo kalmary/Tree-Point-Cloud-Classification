@@ -295,8 +295,8 @@ def random_anisotropic_scale(
 
 def random_nonuniform_thinning(
     points: torch.Tensor,
-    min_keep: float = 0.35,
-    max_keep: float = 0.85,
+    min_keep: float = 0.30,
+    max_keep: float = 0.80,
 ) -> torch.Tensor:
     """
     Simulates non-uniform LiDAR / branch visibility loss.
@@ -334,9 +334,9 @@ def random_nonuniform_thinning(
 
 def random_local_cuboid_dropout(
     points: torch.Tensor,
-    min_cuboids: int = 2,
-    max_cuboids: int = 8,
-    drop_prob_inside: tuple[float, float] = (0.45, 0.90),
+    min_cuboids: int = 3,
+    max_cuboids: int = 10,
+    drop_prob_inside: tuple[float, float] = (0.55, 0.95),
 ) -> torch.Tensor:
     """
     Removes local blocks/patches. This approximates missing branches,
@@ -375,7 +375,7 @@ def random_local_cuboid_dropout(
 def random_height_band_dropout(
     points: torch.Tensor,
     max_bands: int = 3,
-    band_height_range: tuple[float, float] = (0.04, 0.16),
+    band_height_range: tuple[float, float] = (0.08, 0.25),
     drop_prob_inside: tuple[float, float] = (0.40, 0.85),
 ) -> torch.Tensor:
     """
@@ -405,7 +405,7 @@ def random_height_band_dropout(
 
 def random_vertical_crop(
     points: torch.Tensor,
-    max_crop_ratio: float = 0.18,
+    max_crop_ratio: float = 0.15,
 ) -> torch.Tensor:
     """
     Simulates bad top/bottom segmentation.
@@ -436,7 +436,7 @@ def random_vertical_crop(
 
 def random_neighbor_stem_fragment(
     points: torch.Tensor,
-    max_fraction: float = 0.12,
+    max_fraction: float = 0.20,
 ) -> torch.Tensor:
     """
     Adds a thin vertical fragment near the tree, mimicking neighboring-tree leakage.
@@ -470,7 +470,7 @@ def random_neighbor_stem_fragment(
 
 def random_crown_leakage_fragment(
     points: torch.Tensor,
-    max_fraction: float = 0.20,
+    max_fraction: float = 0.30,
 ) -> torch.Tensor:
     """
     Copies a crown-like subset and translates it sideways.
@@ -517,8 +517,8 @@ def random_crown_leakage_fragment(
 
 def random_sparse_outlier_clusters(
     points: torch.Tensor,
-    max_clusters: int = 4,
-    max_fraction: float = 0.06,
+    max_clusters: int = 6,
+    max_fraction: float = 0.12,
 ) -> torch.Tensor:
     """
     Adds small sparse blobs/fragments around the cloud.
@@ -601,31 +601,31 @@ def grajewo_domain_augment(
 
     device = points.device
 
-    if _rand_bool(0.35, device):
+    if _rand_bool(0.45, device):
         points = random_anisotropic_scale(points)
 
-    if _rand_bool(0.70, device):
+    if _rand_bool(0.78, device):
         points = random_nonuniform_thinning(points)
 
-    if _rand_bool(0.45, device):
+    if _rand_bool(0.68, device):
         points = random_branch_emphasis_loss(points)
 
-    if _rand_bool(0.45, device):
+    if _rand_bool(0.75, device):
         points = random_local_cuboid_dropout(points)
 
-    if _rand_bool(0.30, device):
+    if _rand_bool(0.20, device):
         points = random_height_band_dropout(points)
 
-    if _rand_bool(0.25, device):
+    if _rand_bool(0.05, device):
         points = random_vertical_crop(points)
 
-    if _rand_bool(0.30, device):
+    if _rand_bool(0.60, device):
         points = random_crown_leakage_fragment(points)
 
-    if _rand_bool(0.18, device):
+    if _rand_bool(0.50, device):
         points = random_neighbor_stem_fragment(points)
 
-    if _rand_bool(0.20, device):
+    if _rand_bool(0.55, device):
         points = random_sparse_outlier_clusters(points)
 
     points = _safe_points(points)
@@ -699,7 +699,6 @@ class NpyDatasetAug(torch.utils.data.Dataset):
 
         if self.training:
             cloud = add_gaussian_noise(cloud, std=0.02)
-            cloud = transform_points(cloud, device=self.device)
             cloud = rotate_points(cloud, device=self.device)
             cloud = tilt_points(
                 cloud,
@@ -708,11 +707,11 @@ class NpyDatasetAug(torch.utils.data.Dataset):
                 device=self.device,
             )
 
-            if self.use_domain_aug:
-                cloud = grajewo_domain_augment(
-                    cloud,
-                    n_points=self.n_points,
-                )
+        if self.use_domain_aug:
+            cloud = grajewo_domain_augment(
+                cloud,
+                n_points=self.n_points,
+            )
 
         # Final enforcement. If n_points == 0, this does nothing.
         cloud = _resample_points(cloud, n_points=self.n_points)
