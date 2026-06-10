@@ -234,17 +234,23 @@ class BDLCall():
         n_x = max(1, math.ceil((x_max - x_min) / self.size_m))
         n_y = max(1, math.ceil((y_max - y_min) / self.size_m))
 
+        map_width = n_x * self.size_m
+        map_height = n_y * self.size_m
+        center_x = (x_min + x_max) / 2
+        center_y = (y_min + y_max) / 2
+        origin_x = center_x - map_width / 2
+        origin_y = center_y - map_height / 2
+
         tile_map: dict = {}
 
         for ix in range(n_x):
             for iy in range(n_y):
-                cx = x_min + (ix + 0.5) * self.size_m
-                cy = y_min + (iy + 0.5) * self.size_m
+                cx = origin_x + (ix + 0.5) * self.size_m
+                cy = origin_y + (iy + 0.5) * self.size_m
                 tile_map[(ix, iy)] = self._count_species_in_area(cx, cy, crs)
 
         self._tile_map = tile_map
-
-        self._tile_origin = (x_min, y_min)
+        self._tile_origin = (origin_x, origin_y)
         self._tile_crs = crs
 
     def _tile_index(self, x: float, y: float) -> tuple:
