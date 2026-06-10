@@ -243,8 +243,6 @@ class BDLCall():
                 tile_map[(ix, iy)] = self._count_species_in_area(cx, cy, crs)
 
         self._tile_map = tile_map
-        
-        print(tile_map)
 
         self._tile_origin = (x_min, y_min)
         self._tile_crs = crs
