@@ -2,13 +2,10 @@ from __future__ import annotations
 
 import pathlib as pth
 import numpy as np
-import h5py
 
-import random
-from typing import Union, OrderedDict, Optional
+from typing import Union, Optional
 
 import torch
-from torch.utils.data import IterableDataset, get_worker_info
 
 import os
 import sys
@@ -718,7 +715,8 @@ def grajewo_domain_augment(
     points = _resample_points(points, n_points=n_points)
 
     return points
-    
+
+
 class NpyDatasetAug(torch.utils.data.Dataset):
     def __init__(
         self,
@@ -729,6 +727,14 @@ class NpyDatasetAug(torch.utils.data.Dataset):
         device: Optional[torch.device] = torch.device("cpu"),
         n_points: int = 0,
         use_domain_aug: bool = True,
+
+        # Skeleton settings.
+        use_skeleton: bool = True,
+        skeleton_voxel_size: float = 1.0,
+        skeleton_connect_radius: float | None = 4.0,
+        skeleton_min_branch_length: float = 1.5,
+        skeleton_simplify_spacing: float = 2.5,
+        skeleton_sample_spacing: float = 0.05,
     ):
         self.path = pth.Path(path_dir)
         self.resolution_xy = resolution_xy
@@ -737,6 +743,13 @@ class NpyDatasetAug(torch.utils.data.Dataset):
         self.n_points = n_points
         self.use_domain_aug = use_domain_aug
         self.ignore_index = ignore_index
+
+        self.use_skeleton = use_skeleton
+        self.skeleton_voxel_size = skeleton_voxel_size
+        self.skeleton_connect_radius = skeleton_connect_radius
+        self.skeleton_min_branch_length = skeleton_min_branch_length
+        self.skeleton_simplify_spacing = skeleton_simplify_spacing
+        self.skeleton_sample_spacing = skeleton_sample_spacing
 
         self.files = sorted(self.path.rglob("*.npy"))
 
@@ -771,9 +784,6 @@ class NpyDatasetAug(torch.utils.data.Dataset):
 
         xyz = np.load(path, allow_pickle=False)[:, :3]
 
-
-
-
         cloud = torch.from_numpy(xyz).float().to(self.device)
         cloud = _safe_points(cloud)
 
@@ -801,8 +811,9 @@ class NpyDatasetAug(torch.utils.data.Dataset):
 
         # Final enforcement. If n_points == 0, this does nothing.
         cloud = _resample_points(cloud, n_points=self.n_points)
+        cloud = _safe_points(cloud)
 
-        cloud = cloud2sideViews_torch(
+        pcd_views = cloud2sideViews_torch(
             cloud,
             resolution_xy=self.resolution_xy,
         )

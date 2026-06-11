@@ -929,25 +929,25 @@ def cloud2sideViews_torch(points: torch.Tensor,
 
 def main():
     import pathlib as pth
-    path = pth.Path("/mnt/SSD_EXT4_1TB/DATA/tree_data/FULL_LAZ/cut/07-45_tile_000_010.npy")
+    path = pth.Path("/mnt/SSD_EXT4_1TB/DATA/09382_10.npy")
 
     pcd = np.load(path)[: , :3]
 
     points, edges = voxel_tree_skeleton_numpy(
         pcd,
         voxel_size=1.,
-        connect_radius=5.0,
-        min_branch_length=2.0,
-        simplify_spacing=3.,
+        connect_radius=4.0,
+        min_branch_length=1.5,
+        simplify_spacing=2.5,
     )
 
     fig, axes = plot_side_views_with_skeleton(
         pcd=torch.from_numpy(pcd),
         skeleton_points=points,
         skeleton_edges=edges,
-        resolution_xy=128,
-        skeleton_gray=0.0,
-        skeleton_linewidth=2.,
+        resolution_xy=256,
+        skeleton_gray=1.,
+        skeleton_linewidth=1.5,
         skeleton_point_size=2.0,
     )
 
