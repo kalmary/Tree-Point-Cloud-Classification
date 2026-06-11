@@ -434,6 +434,23 @@ def random_vertical_crop(
     return points[keep]
 
 
+def random_bottom_crop(
+    points: torch.Tensor,
+    crop_range: tuple[float, float] = (0.15, 0.55),
+) -> torch.Tensor:
+    device = points.device
+    norm, _, _ = _normalize_for_masks(points)
+    z = norm[:, 2]
+
+    bottom = torch.empty((), device=device).uniform_(*crop_range)
+    keep = z >= bottom
+
+    if keep.sum() < 64:
+        return points
+
+    return points[keep]
+
+
 def random_neighbor_stem_fragment(
     points: torch.Tensor,
     max_fraction: float = 0.20,
@@ -515,9 +532,75 @@ def random_crown_leakage_fragment(
     return torch.cat([points, fragment], dim=0)
 
 
+def random_neighbor_tree_copy(
+    points: torch.Tensor,
+    xy_shift_range: tuple[float, float] = (1.0, 3.0),
+    z_shift_range: tuple[float, float] = (-1.0, 1.0),
+    second_copy_prob: float = 0.12,
+) -> torch.Tensor:
+    device = points.device
+    centroid = points.mean(dim=0, keepdim=True)
+    copies = []
+    n_copies = 1 + int(_rand_bool(second_copy_prob, device))
+
+    for _ in range(n_copies):
+        copy = points.clone() - centroid
+
+        copy = add_gaussian_noise(copy, std=0.02)
+
+        if _rand_bool(0.65, device):
+            copy = random_anisotropic_scale(
+                copy,
+                xy_range=(0.85, 1.20),
+                z_range=(0.80, 1.25),
+            )
+
+        if _rand_bool(0.55, device):
+            copy = rotate_points(copy, device=device)
+
+        if _rand_bool(0.35, device):
+            copy = tilt_points(
+                copy,
+                max_x_tilt_degrees=8,
+                max_y_tilt_degrees=8,
+                device=device,
+            )
+
+        if _rand_bool(0.78, device):
+            copy = random_bottom_crop(copy)
+
+        if _rand_bool(0.45, device):
+            copy = random_nonuniform_thinning(
+                copy,
+                min_keep=0.35,
+                max_keep=0.85,
+            )
+
+        if _rand_bool(0.30, device):
+            copy = random_local_cuboid_dropout(
+                copy,
+                min_cuboids=1,
+                max_cuboids=5,
+            )
+
+        angle = torch.empty((), device=device).uniform_(0.0, 2.0 * np.pi)
+        radius = torch.empty((), device=device).uniform_(*xy_shift_range)
+        z_shift = torch.empty((), device=device).uniform_(*z_shift_range)
+        shift = torch.stack([
+            torch.cos(angle) * radius,
+            torch.sin(angle) * radius,
+            z_shift,
+        ]).view(1, 3)
+
+        copy = copy + centroid + shift
+        copies.append(copy)
+
+    return torch.cat([points, *copies], dim=0)
+
+
 def random_sparse_outlier_clusters(
     points: torch.Tensor,
-    max_clusters: int = 6,
+    max_clusters: int = 4,
     max_fraction: float = 0.12,
 ) -> torch.Tensor:
     """
@@ -627,6 +710,9 @@ def grajewo_domain_augment(
 
     if _rand_bool(0.55, device):
         points = random_sparse_outlier_clusters(points)
+
+    if _rand_bool(0.45, device):
+        points = random_neighbor_tree_copy(points)
 
     points = _safe_points(points)
     points = _resample_points(points, n_points=n_points)
