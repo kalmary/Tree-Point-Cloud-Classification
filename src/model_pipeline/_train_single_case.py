@@ -77,8 +77,7 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
                                ignore_index=training_dict['num_classes'],
                                device=device_loader,
                                n_points=16384,
-                               use_domain_aug=True,
-                               use_skeleton=True)
+                               use_domain_aug=True)
     
     val_dataset = NpyDatasetAug(path_dir=training_dict['data_path_val'],
                             resolution_xy=training_dict['input_dim'],
@@ -86,8 +85,7 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
                             ignore_index=training_dict['num_classes'],
                             device=device_loader,
                             n_points=16384,
-                            use_domain_aug=True,
-                            use_skeleton=True)
+                            use_domain_aug=True)
     
     trainLoader = DataLoader(
         train_dataset,
