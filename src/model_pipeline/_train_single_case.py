@@ -86,16 +86,6 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
                             device=device_loader,
                             n_points=16384,
                             use_domain_aug=True)
-    
-    trainLoader = DataLoader(
-        train_dataset,
-        batch_size=training_dict["batch_size"],
-        shuffle=True,
-        num_workers=num_workers,
-        pin_memory=True,          # faster CPU->GPU transfers
-        persistent_workers=False,  # keep workers alive between epochs
-        prefetch_factor=2,
-    )
 
     valLoader = DataLoader(
         val_dataset,

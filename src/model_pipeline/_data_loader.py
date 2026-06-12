@@ -676,13 +676,12 @@ class NpyDatasetAug(torch.utils.data.Dataset):
                 n_points=self.n_points,
             )
 
-        # Final enforcement. If n_points == 0, this does nothing.
-        cloud = _resample_points(cloud, n_points=self.n_points)
         cloud = _safe_points(cloud)
+        cloud = _resample_points(cloud, n_points=self.n_points)
 
-        pcd_views = cloud2sideViews_torch(
+        views = cloud2sideViews_torch(
             cloud,
             resolution_xy=self.resolution_xy,
         )
 
-        return cloud.cpu(), label
+        return views.cpu(), label
