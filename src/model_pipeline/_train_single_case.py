@@ -76,6 +76,7 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
                                training=True,
                                ignore_index=training_dict['num_classes'],
                                device=device_loader,
+                               n_points=16384,
                                use_domain_aug=True,
                                use_skeleton=True)
     
@@ -84,6 +85,7 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
                             training=False,
                             ignore_index=training_dict['num_classes'],
                             device=device_loader,
+                            n_points=16384,
                             use_domain_aug=True,
                             use_skeleton=True)
     
