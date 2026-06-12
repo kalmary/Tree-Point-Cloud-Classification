@@ -1,5 +1,0 @@
-{
-    "model_version": "efficientnet_b4",
-    "in_channels": 10,
-    "dropout": 0.5
-}
