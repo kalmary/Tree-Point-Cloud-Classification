@@ -400,7 +400,7 @@ def random_neighbor_tree_copy(
     points: torch.Tensor,
     xy_shift_range: tuple[float, float] = (1.0, 3.0),
     z_shift_range: tuple[float, float] = (-1.0, 1.0),
-    second_copy_prob: float = 0.12,
+    second_copy_prob: float = 0.05 / 0.33,
 ) -> torch.Tensor:
     device = points.device
     centroid = points.mean(dim=0, keepdim=True)
@@ -575,7 +575,7 @@ def grajewo_domain_augment(
     if _rand_bool(0.55, device):
         points = random_sparse_outlier_clusters(points)
 
-    if _rand_bool(0.45, device):
+    if _rand_bool(0.33, device):
         points = random_neighbor_tree_copy(points)
 
     points = _safe_points(points)
