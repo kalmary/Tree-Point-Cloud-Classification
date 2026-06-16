@@ -5,16 +5,16 @@ import torch.nn as nn
 import pathlib as pth
 
 try:
-    from .final_files.model import EfficientNetClassifier
+    from .final_files.model_en import EfficientNetClassifier
     from .utils import load_model, load_json
     from .utils.data_augmentation import cloud2sideViews_torch
 except ImportError:
     try:
-        from final_files.model import EfficientNetClassifier
+        from final_files.model_en import EfficientNetClassifier
         from utils import load_model, load_json
         from utils.data_augmentation import cloud2sideViews_torch
     except ImportError:
-        from TreeClassification.src.final_files.model import EfficientNetClassifier
+        from TreeClassification.src.final_files.model_en import EfficientNetClassifier
         from TreeClassification.src.utils import load_model, load_json
         from TreeClassification.src.utils.data_augmentation import cloud2sideViews_torch
 
