@@ -58,7 +58,7 @@ def save_metric_history_csv(result_hist: dict,
 
 
 def check_models(model_configs_paths: list[pth.Path],
-                 max_input_size = (30, 10, 350, 350),
+                 max_input_size = (30, 5, 350, 350),
                  max_memory_GB = 20,
                  verbose: bool = False) -> tuple[list[dict], list[pth.Path]]:
     """

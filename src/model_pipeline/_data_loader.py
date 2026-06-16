@@ -15,139 +15,6 @@ sys.path.append(neural_net_dir)
 from utils.pcd_manipulation import rotate_points, tilt_points, transform_points, add_gaussian_noise
 from utils.data_augmentation import cloud2sideViews_torch
 
-#########################################################
-###################### ITERABLE #########################
-#########################################################
-
-class Dataset(IterableDataset):
-
-    def __init__(self,
-                 path_dir: Union[str, pth.Path],
-                 resolution_xy: int,
-                 num_classes: int,
-                 batch_size: int,
-                 weights: torch.Tensor = None,
-                 shuffle: bool = True,
-                 buffer: int = 250,
-                 device: Optional[torch.device] = torch.device('cpu')):
-
-        super(Dataset).__init__()
-
-        self.path = pth.Path(path_dir)
-        self.resolution_xy = resolution_xy
-        self.num_classes = num_classes
-        self.batch_size = batch_size
-        self.shuffle = shuffle
-        self.device = device
-        self.buffer_size = buffer
-        self.weights = None
-
-        if weights is not None:
-            self.weights = weights.cpu().numpy()
-            self.weights = self.weights * 10
-            self.weights = self.weights.astype(np.int32).clip(min=1)
-            self.weights_dict = OrderedDict()
-            for i, weight in enumerate(self.weights):
-                self.weights_dict[i] = weight.item()
-
-    def _iter_samples(self):
-        """Yields (xyz: np.ndarray shape (N,3), label: int) from both .npy and .h5 files."""
-
-        npy_paths = list(self.path.rglob('*.npy'))
-        h5_paths  = list(self.path.rglob('*.h5'))
-
-        worker_info = get_worker_info()
-        if worker_info is not None:
-            npy_paths = npy_paths[worker_info.id::worker_info.num_workers]
-            h5_paths  = h5_paths[worker_info.id::worker_info.num_workers]
-
-        if self.shuffle:
-            random.shuffle(npy_paths)
-
-        for path in npy_paths:
-            label = int(path.stem.rsplit('_', 1)[-1])
-            if label >= self.num_classes:
-                continue
-            arr   = np.load(path)
-            yield arr[:, :3], label
-
-        if self.shuffle:
-            random.shuffle(h5_paths)
-
-        for path in h5_paths:
-            with h5py.File(path, 'r') as f:
-                keys = list(f.keys())
-                if self.shuffle:
-                    random.shuffle(keys)
-                for key in keys:
-                    chunk = f[key][:]           # (B, N, 4)
-                    indices = list(range(chunk.shape[0]))
-                    if self.shuffle:
-                        random.shuffle(indices)
-                    for i in indices:
-                        row   = chunk[i]        # (N, 4)
-                        label = int(row[0, 3])  # all points in this tree share the same label
-                        yield row[:, :3], label
-
-    def _key_streamer(self):
-        worker_buffer = []
-
-        for xyz, label in self._iter_samples():
-            if self.shuffle and self.weights is not None:
-                repeat = self.weights_dict.get(label, 1)
-                for _ in range(repeat):
-                    worker_buffer.append((xyz, label))
-
-                if len(worker_buffer) >= self.buffer_size:
-                    random.shuffle(worker_buffer)
-                    for item in worker_buffer:
-                        yield item
-                    worker_buffer.clear()
-            else:
-                yield (xyz, label)
-
-        if worker_buffer:
-            random.shuffle(worker_buffer)
-            for item in worker_buffer:
-                yield item
-            worker_buffer.clear()
-
-    def _process_cloud(self):
-        for xyz, label in self._key_streamer():
-            label = torch.tensor(label).long()
-
-            cloud_tensor = torch.from_numpy(xyz).float().to(self.device)
-
-            if self.shuffle:
-                cloud_tensor = add_gaussian_noise(cloud_tensor, std=0.05)
-                cloud_tensor = transform_points(cloud_tensor, device=self.device)
-                cloud_tensor = rotate_points(cloud_tensor, device=self.device)
-                cloud_tensor = tilt_points(cloud_tensor, max_x_tilt_degrees=10, max_y_tilt_degrees=10, device=self.device)
-
-            cloud_tensor = cloud2sideViews_torch(points=cloud_tensor, resolution_xy=self.resolution_xy)
-
-            yield cloud_tensor.cpu(), label
-
-    def __iter__(self):
-        cloud_batch = []
-        label_batch = []
-
-        for cloud, label in self._process_cloud():
-            cloud_batch.append(cloud.unsqueeze(0))
-            label_batch.append(label)
-
-            if len(label_batch) >= self.batch_size:
-                yield torch.vstack(cloud_batch).float(), torch.stack(label_batch).long()
-                cloud_batch, label_batch = [], []
-
-        if label_batch:
-            yield torch.vstack(cloud_batch).float(), torch.stack(label_batch).long()
-
-
-#########################################################
-####################### CLASSIC #########################
-#########################################################
-
 
 class NpyDataset(torch.utils.data.Dataset):
  
@@ -431,6 +298,23 @@ def random_vertical_crop(
     return points[keep]
 
 
+def random_bottom_crop(
+    points: torch.Tensor,
+    crop_range: tuple[float, float] = (0.15, 0.55),
+) -> torch.Tensor:
+    device = points.device
+    norm, _, _ = _normalize_for_masks(points)
+    z = norm[:, 2]
+
+    bottom = torch.empty((), device=device).uniform_(*crop_range)
+    keep = z >= bottom
+
+    if keep.sum() < 64:
+        return points
+
+    return points[keep]
+
+
 def random_neighbor_stem_fragment(
     points: torch.Tensor,
     max_fraction: float = 0.20,
@@ -512,9 +396,75 @@ def random_crown_leakage_fragment(
     return torch.cat([points, fragment], dim=0)
 
 
+def random_neighbor_tree_copy(
+    points: torch.Tensor,
+    xy_shift_range: tuple[float, float] = (1.0, 3.0),
+    z_shift_range: tuple[float, float] = (-1.0, 1.0),
+    second_copy_prob: float = 0.05 / 0.33,
+) -> torch.Tensor:
+    device = points.device
+    centroid = points.mean(dim=0, keepdim=True)
+    copies = []
+    n_copies = 1 + int(_rand_bool(second_copy_prob, device))
+
+    for _ in range(n_copies):
+        copy = points.clone() - centroid
+
+        copy = add_gaussian_noise(copy, std=0.02)
+
+        if _rand_bool(0.65, device):
+            copy = random_anisotropic_scale(
+                copy,
+                xy_range=(0.85, 1.20),
+                z_range=(0.80, 1.25),
+            )
+
+        if _rand_bool(0.55, device):
+            copy = rotate_points(copy, device=device)
+
+        if _rand_bool(0.35, device):
+            copy = tilt_points(
+                copy,
+                max_x_tilt_degrees=8,
+                max_y_tilt_degrees=8,
+                device=device,
+            )
+
+        if _rand_bool(0.78, device):
+            copy = random_bottom_crop(copy)
+
+        if _rand_bool(0.45, device):
+            copy = random_nonuniform_thinning(
+                copy,
+                min_keep=0.35,
+                max_keep=0.85,
+            )
+
+        if _rand_bool(0.30, device):
+            copy = random_local_cuboid_dropout(
+                copy,
+                min_cuboids=1,
+                max_cuboids=5,
+            )
+
+        angle = torch.empty((), device=device).uniform_(0.0, 2.0 * np.pi)
+        radius = torch.empty((), device=device).uniform_(*xy_shift_range)
+        z_shift = torch.empty((), device=device).uniform_(*z_shift_range)
+        shift = torch.stack([
+            torch.cos(angle) * radius,
+            torch.sin(angle) * radius,
+            z_shift,
+        ]).view(1, 3)
+
+        copy = copy + centroid + shift
+        copies.append(copy)
+
+    return torch.cat([points, *copies], dim=0)
+
+
 def random_sparse_outlier_clusters(
     points: torch.Tensor,
-    max_clusters: int = 6,
+    max_clusters: int = 4,
     max_fraction: float = 0.12,
 ) -> torch.Tensor:
     """
@@ -625,6 +575,9 @@ def grajewo_domain_augment(
     if _rand_bool(0.55, device):
         points = random_sparse_outlier_clusters(points)
 
+    if _rand_bool(0.33, device):
+        points = random_neighbor_tree_copy(points)
+
     points = _safe_points(points)
     points = _resample_points(points, n_points=n_points)
 
@@ -723,41 +676,12 @@ class NpyDatasetAug(torch.utils.data.Dataset):
                 n_points=self.n_points,
             )
 
-        # Final enforcement. If n_points == 0, this does nothing.
-        cloud = _resample_points(cloud, n_points=self.n_points)
         cloud = _safe_points(cloud)
+        cloud = _resample_points(cloud, n_points=self.n_points)
 
-        pcd_views = cloud2sideViews_torch(
+        views = cloud2sideViews_torch(
             cloud,
             resolution_xy=self.resolution_xy,
         )
 
-        if not self.use_skeleton:
-            return pcd_views.cpu(), label
-
-        skeleton_points, skeleton_edges = voxel_tree_skeleton_torch(
-            cloud,
-            voxel_size=self.skeleton_voxel_size,
-            connect_radius=self.skeleton_connect_radius,
-            min_branch_length=self.skeleton_min_branch_length,
-            simplify_spacing=self.skeleton_simplify_spacing,
-        )
-
-        skeleton_points = _sample_skeleton_edges_torch(
-            points=skeleton_points,
-            edges=skeleton_edges,
-            spacing=self.skeleton_sample_spacing,
-        )
-
-        skeleton_views = cloud2sideViews_torch_with_reference_cube(
-            points=skeleton_points,
-            reference_points=cloud,
-            resolution_xy=self.resolution_xy,
-        )
-
-        sample = torch.stack(
-            [view for pair in zip(pcd_views.unbind(0), skeleton_views.unbind(0)) for view in pair],
-            dim=0,
-        )
-
-        return sample.cpu(), label
+        return views.cpu(), label

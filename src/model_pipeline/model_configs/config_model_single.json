@@ -1,6 +1,6 @@
 {
   "model_version": "efficientnet_b3",
-  "in_channels": 10,
+  "in_channels": 5,
   "dropout": 0.45,
   "num_classes": 15
 }
