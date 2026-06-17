@@ -238,33 +238,33 @@ def eval_model_front(config_dict: dict,
                         pred=all_predictions,
                         target=all_labels)
 
-    laz_path = '/mnt/DATA_SSD/BRIK/GRAJEWO_NOWE/RAW/Grajewo_2026_2.laz'
-    if laz_path:
-        map_points, crs = load_laz_points_and_crs(pth.Path(laz_path))
-        mask = voxel_subsample_vectorized(map_points.copy(), voxel_size=1.)
-        map_points = map_points[mask]
+    # laz_path = '/mnt/DATA_SSD/BRIK/GRAJEWO_NOWE/RAW/Grajewo_2026_2.laz'
+    # if laz_path:
+    #     map_points, crs = load_laz_points_and_crs(pth.Path(laz_path))
+    #     mask = voxel_subsample_vectorized(map_points.copy(), voxel_size=1.)
+    #     map_points = map_points[mask]
 
-        bdl_predictions = bdl_refined_predictions(
-            predictions=all_predictions,
-            map_points=map_points,
-            crs=crs,
-        )
-        bdl_accuracy = prediction_accuracy(
-            predictions=bdl_predictions,
-            labels=all_labels,
-            ignore_index=OTHERS,
-        )
+    #     bdl_predictions = bdl_refined_predictions(
+    #         predictions=all_predictions,
+    #         map_points=map_points,
+    #         crs=crs,
+    #     )
+    #     bdl_accuracy = prediction_accuracy(
+    #         predictions=bdl_predictions,
+    #         labels=all_labels,
+    #         ignore_index=OTHERS,
+    #     )
 
-        print('BDL CLASSIFIER ENABLED')
-        print('BDL accuracy: ', bdl_accuracy)
-        print('='*20)
+    #     print('BDL CLASSIFIER ENABLED')
+    #     print('BDL accuracy: ', bdl_accuracy)
+    #     print('='*20)
 
-        plotter.cnf_matrix(f'cnf_bdl_{model_name}.png', all_labels, bdl_predictions)
-        ClassificationReport(file_path=plot_dir.joinpath(f'classification_report_bdl_{model_name}.txt'),
-                            pred=bdl_predictions,
-                            target=all_labels)
-    else:
-        print("BDL classifier skipped: set laz_path in eval_model_front to enable it.")
+    #     plotter.cnf_matrix(f'cnf_bdl_{model_name}.png', all_labels, bdl_predictions)
+    #     ClassificationReport(file_path=plot_dir.joinpath(f'classification_report_bdl_{model_name}.txt'),
+    #                         pred=bdl_predictions,
+    #                         target=all_labels)
+    # else:
+    #     print("BDL classifier skipped: set laz_path in eval_model_front to enable it.")
 
 
 def test_function(config_dict: dict,
