@@ -34,3 +34,10 @@ threadpoolctl==3.6.0
 torchinfo==1.8.0
 tqdm==4.67.1
 tzdata==2025.2
+certifi==2026.6.17
+charset-normalizer==3.4.7
+idna==3.18
+requests==2.34.2
+urllib3==2.7.0
+pyproj==3.7.2
+

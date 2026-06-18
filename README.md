@@ -100,7 +100,7 @@ Pay attention to above files and adjust them to ensure the fit with your availab
   
 Files with `_single` suffix are meant for single training without any optimizations. Others are for multi-hyperparameter optimization.
 
-To start training run:
+To start full training pipeline run:
 ```bash
 cd src/model_pipeline
 python src/model_pipeline/Train_Automated.py --model_name MODEL_NAME --device cuda --mode 3
@@ -111,9 +111,8 @@ Available flags:
 - ``mode`` - you can choose following:
     - `0` - testing mode: ,
     - `1` - single training without optimizations: good choice if fast/ based on known optimal parameters training is required.,
-    - `2` - grid based optimal hyperparameters search: only with optimization case is really simple/ configs combination number is low,,
-    - `3` - Optuna library based hyperparameter search: for high dimensional and complex cases. If you have special needs in terms of time computation,
-    - `4` - check models - run this to get a rough idea of model resource demands.
+    - `2` - Optuna library based hyperparameter search: for high dimensional and complex cases. If you have special needs in terms of time computation,
+    - `3` - check models - run this to get a rough idea of model resource demands.
  
 
 For most optimal results we recommend using options based on multidimensional space of hyperparameters. If you choose Optuna based option you can change ``n_trials`` in ``main`` function of ``Train_Automated.py``:
@@ -136,7 +135,7 @@ To evaluate trained model, run Eval_TreeClassification.py with proper flags:
 cd src/model_pipeline
 python src/model_pipeline/Eval_TreeClassification.py --model_name MODEL_NAME --device cuda --mode 1
 ```
-``model_name`` flag must be the exact name of model you got from training, but without extension name. For example:
+``model_name`` flag must be the exact name of model you got from training, but without its extension name. For example:
 ```
 ResNetTest_123.pt -> ResNetTest_123
 ```
@@ -150,6 +149,36 @@ Evaluation mode output are plots:
 - Confusion matrix
 
 As previously, you can run this script with ``--help`` flag.
+
+For inference, use:
+- ``src/TreeClassifier.py`` - ``TreeClassifier`` loads a trained model and predicts tree classes from point cloud arrays,
+- ``src/BDL_api.py`` - ``BDLCall`` uses BDL data to modify model output labels with aid of [Bank Danych o Lasach](https://www.bdl.lasy.gov.pl/portal/).
+
+Example usage:
+```python
+import numpy as np
+import torch
+
+from src.TreeClassifier import TreeClassifier
+from src.BDL_api import BDLCall
+from src.final_files.model_en import EfficientNetClassifier
+
+config_path = "src/final_files/ResNetTreeV0_61_config.json"
+model = EfficientNetClassifier.from_config_file(config_path, num_classes=17)
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+classifier = TreeClassifier(
+    model_name="ResNetTreeV0_61",
+    config_dir="src/final_files",
+    device=device,
+)
+
+cloud = np.load("path/to/tree.npy")
+model_label = classifier.predict(cloud)
+
+bdl = BDLCall(size_m=5000, model_based=True)
+species_label = bdl.predict(cloud, crs="EPSG:2180", tree_label=model_label)
+```
 
 
 ## **License**
