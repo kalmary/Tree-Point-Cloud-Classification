@@ -30,7 +30,7 @@
     ],
     "focal_loss_gamma": [
         0.1,
-        2.0,
+        2.5,
         0.1
     ],
     "scheduler_params_comment": [],

@@ -16,50 +16,6 @@ from utils.pcd_manipulation import rotate_points, tilt_points, transform_points,
 from utils.data_augmentation import cloud2sideViews_torch
 
 
-class NpyDataset(torch.utils.data.Dataset):
- 
-    def __init__(self,
-                 path_dir: Union[str, pth.Path],
-                 resolution_xy: int = 350,
-                 training: bool = True,
-                 ignore_index: Optional[int] = None,
-                 device: Optional[torch.device] = torch.device('cpu')):
- 
-        self.path = pth.Path(path_dir)
-        self.resolution_xy = resolution_xy
-        self.training = training
-        self.device = device
-        self.files = sorted(self.path.rglob('*.npy'))
-
-        if ignore_index is not None:
-            self.files = [f for f in self.files if int(f.stem.rsplit('_', 1)[-1]) < ignore_index]
-        else:
-            self.files = sorted(self.path.rglob('*.npy'))
- 
-    def __len__(self):
-        return len(self.files)
- 
-    def __getitem__(self, idx):
-        path  = self.files[idx]
-        label = int(path.stem.rsplit('_', 1)[-1])
-    
-        xyz   = np.load(path)[:, :3]
- 
-        cloud = torch.from_numpy(xyz).float().to(self.device)
-        label = torch.tensor(label).long()
- 
-        if self.training:
-            cloud = add_gaussian_noise(cloud, std=0.02)
-            cloud = transform_points(cloud, device=self.device)
-            cloud = rotate_points(cloud, device=self.device)
-            cloud = tilt_points(cloud, max_x_tilt_degrees=15, max_y_tilt_degrees=15, device=self.device)
-
-        cloud = cloud2sideViews_torch(cloud, resolution_xy=self.resolution_xy)
-
-        return cloud.cpu(), label
-    
-
-
 
 import pathlib as pth
 from typing import Optional, Union
@@ -143,8 +99,8 @@ def _normalize_for_masks(points: torch.Tensor) -> tuple[torch.Tensor, torch.Tens
 
 def random_anisotropic_scale(
     points: torch.Tensor,
-    xy_range: tuple[float, float] = (0.80, 1.35),
-    z_range: tuple[float, float] = (0.75, 1.45),
+    xy_range: tuple[float, float] = (0.85, 1.25),
+    z_range: tuple[float, float] = (0.82, 1.32),
 ) -> torch.Tensor:
     device = points.device
     center = points.mean(dim=0, keepdim=True)
@@ -159,8 +115,8 @@ def random_anisotropic_scale(
 
 def random_nonuniform_thinning(
     points: torch.Tensor,
-    min_keep: float = 0.30,
-    max_keep: float = 0.80,
+    min_keep: float = 0.40,
+    max_keep: float = 0.88,
 ) -> torch.Tensor:
     """
     Simulates non-uniform LiDAR / branch visibility loss.
@@ -184,9 +140,9 @@ def random_nonuniform_thinning(
     z_penalty = torch.exp(-0.5 * ((z - z_center) / z_width) ** 2)
 
     keep_prob = base_keep
-    keep_prob = keep_prob - 0.35 * peripheral_penalty
-    keep_prob = keep_prob - 0.25 * z_penalty
-    keep_prob = torch.clamp(keep_prob, 0.08, 1.0)
+    keep_prob = keep_prob - 0.30 * peripheral_penalty
+    keep_prob = keep_prob - 0.20 * z_penalty
+    keep_prob = torch.clamp(keep_prob, 0.12, 1.0)
 
     keep = torch.rand(points.shape[0], device=device) < keep_prob
 
@@ -198,9 +154,9 @@ def random_nonuniform_thinning(
 
 def random_local_cuboid_dropout(
     points: torch.Tensor,
-    min_cuboids: int = 3,
-    max_cuboids: int = 10,
-    drop_prob_inside: tuple[float, float] = (0.55, 0.95),
+    min_cuboids: int = 2,
+    max_cuboids: int = 8,
+    drop_prob_inside: tuple[float, float] = (0.45, 0.80),
 ) -> torch.Tensor:
     """
     Removes local blocks/patches. This approximates missing branches,
@@ -217,9 +173,9 @@ def random_local_cuboid_dropout(
 
         # Small XY/Z boxes. Z can be larger to mimic vertical missing regions.
         size = torch.empty(3, device=device)
-        size[0].uniform_(0.08, 0.24)
-        size[1].uniform_(0.08, 0.24)
-        size[2].uniform_(0.08, 0.30)
+        size[0].uniform_(0.07, 0.20)
+        size[1].uniform_(0.07, 0.20)
+        size[2].uniform_(0.07, 0.25)
 
         low = center - size / 2.0
         high = center + size / 2.0
@@ -238,9 +194,9 @@ def random_local_cuboid_dropout(
 
 def random_height_band_dropout(
     points: torch.Tensor,
-    max_bands: int = 3,
-    band_height_range: tuple[float, float] = (0.08, 0.25),
-    drop_prob_inside: tuple[float, float] = (0.40, 0.85),
+    max_bands: int = 2,
+    band_height_range: tuple[float, float] = (0.06, 0.20),
+    drop_prob_inside: tuple[float, float] = (0.35, 0.75),
 ) -> torch.Tensor:
     """
     Simulates broken crowns/stems and missing horizontal LiDAR slices.
@@ -269,7 +225,7 @@ def random_height_band_dropout(
 
 def random_vertical_crop(
     points: torch.Tensor,
-    max_crop_ratio: float = 0.15,
+    max_crop_ratio: float = 0.12,
 ) -> torch.Tensor:
     """
     Simulates bad top/bottom segmentation.
@@ -300,7 +256,7 @@ def random_vertical_crop(
 
 def random_bottom_crop(
     points: torch.Tensor,
-    crop_range: tuple[float, float] = (0.15, 0.55),
+    crop_range: tuple[float, float] = (0.12, 0.45),
 ) -> torch.Tensor:
     device = points.device
     norm, _, _ = _normalize_for_masks(points)
@@ -317,7 +273,7 @@ def random_bottom_crop(
 
 def random_neighbor_stem_fragment(
     points: torch.Tensor,
-    max_fraction: float = 0.20,
+    max_fraction: float = 0.16,
 ) -> torch.Tensor:
     """
     Adds a thin vertical fragment near the tree, mimicking neighboring-tree leakage.
@@ -338,12 +294,12 @@ def random_neighbor_stem_fragment(
     z = torch.empty(fragment_n, device=device).uniform_(float(z_min), float(z_max))
 
     side = -1.0 if _rand_bool(0.5, device) else 1.0
-    offset_x = side * torch.empty((), device=device).uniform_(0.35, 0.80) * span[0]
-    offset_y = torch.empty((), device=device).uniform_(-0.35, 0.35) * span[1]
+    offset_x = side * torch.empty((), device=device).uniform_(0.30, 0.65) * span[0]
+    offset_y = torch.empty((), device=device).uniform_(-0.30, 0.30) * span[1]
 
     base_xy = points[:, :2].mean(dim=0)
-    x = base_xy[0] + offset_x + torch.randn(fragment_n, device=device) * span[0] * 0.015
-    y = base_xy[1] + offset_y + torch.randn(fragment_n, device=device) * span[1] * 0.015
+    x = base_xy[0] + offset_x + torch.randn(fragment_n, device=device) * span[0] * 0.012
+    y = base_xy[1] + offset_y + torch.randn(fragment_n, device=device) * span[1] * 0.012
 
     fragment = torch.stack([x, y, z], dim=1)
     return torch.cat([points, fragment], dim=0)
@@ -351,7 +307,7 @@ def random_neighbor_stem_fragment(
 
 def random_crown_leakage_fragment(
     points: torch.Tensor,
-    max_fraction: float = 0.30,
+    max_fraction: float = 0.24,
 ) -> torch.Tensor:
     """
     Copies a crown-like subset and translates it sideways.
@@ -380,14 +336,14 @@ def random_crown_leakage_fragment(
 
     side = -1.0 if _rand_bool(0.5, device) else 1.0
     translation = torch.zeros(3, device=device)
-    translation[0] = side * torch.empty((), device=device).uniform_(0.25, 0.75) * span[0]
-    translation[1] = torch.empty((), device=device).uniform_(-0.35, 0.35) * span[1]
-    translation[2] = torch.empty((), device=device).uniform_(-0.08, 0.08) * span[2]
+    translation[0] = side * torch.empty((), device=device).uniform_(0.20, 0.60) * span[0]
+    translation[1] = torch.empty((), device=device).uniform_(-0.30, 0.30) * span[1]
+    translation[2] = torch.empty((), device=device).uniform_(-0.06, 0.06) * span[2]
 
     fragment = fragment + translation
 
     # Make leaked fragment sparse.
-    keep = torch.rand(fragment.shape[0], device=device) < torch.empty((), device=device).uniform_(0.25, 0.70)
+    keep = torch.rand(fragment.shape[0], device=device) < torch.empty((), device=device).uniform_(0.20, 0.55)
     fragment = fragment[keep]
 
     if fragment.shape[0] == 0:
@@ -398,8 +354,8 @@ def random_crown_leakage_fragment(
 
 def random_neighbor_tree_copy(
     points: torch.Tensor,
-    xy_shift_range: tuple[float, float] = (1.0, 3.0),
-    z_shift_range: tuple[float, float] = (-1.0, 1.0),
+    xy_shift_range: tuple[float, float] = (0.8, 2.4),
+    z_shift_range: tuple[float, float] = (-0.8, 0.8),
     second_copy_prob: float = 0.05 / 0.33,
 ) -> torch.Tensor:
     device = points.device
@@ -410,13 +366,13 @@ def random_neighbor_tree_copy(
     for _ in range(n_copies):
         copy = points.clone() - centroid
 
-        copy = add_gaussian_noise(copy, std=0.02)
+        copy = add_gaussian_noise(copy, std=0.015)
 
         if _rand_bool(0.65, device):
             copy = random_anisotropic_scale(
                 copy,
-                xy_range=(0.85, 1.20),
-                z_range=(0.80, 1.25),
+                xy_range=(0.90, 1.15),
+                z_range=(0.88, 1.18),
             )
 
         if _rand_bool(0.55, device):
@@ -425,19 +381,19 @@ def random_neighbor_tree_copy(
         if _rand_bool(0.35, device):
             copy = tilt_points(
                 copy,
-                max_x_tilt_degrees=8,
-                max_y_tilt_degrees=8,
+                max_x_tilt_degrees=6,
+                max_y_tilt_degrees=6,
                 device=device,
             )
 
         if _rand_bool(0.78, device):
-            copy = random_bottom_crop(copy)
+            copy = random_bottom_crop(copy, crop_range=(0.12, 0.45))
 
         if _rand_bool(0.45, device):
             copy = random_nonuniform_thinning(
                 copy,
-                min_keep=0.35,
-                max_keep=0.85,
+                min_keep=0.42,
+                max_keep=0.88,
             )
 
         if _rand_bool(0.30, device):
@@ -464,8 +420,8 @@ def random_neighbor_tree_copy(
 
 def random_sparse_outlier_clusters(
     points: torch.Tensor,
-    max_clusters: int = 4,
-    max_fraction: float = 0.12,
+    max_clusters: int = 3,
+    max_fraction: float = 0.09,
 ) -> torch.Tensor:
     """
     Adds small sparse blobs/fragments around the cloud.
@@ -488,14 +444,14 @@ def random_sparse_outlier_clusters(
     for _ in range(n_clusters):
         cluster_n = max(4, total_n // n_clusters)
 
-        offset = torch.empty(3, device=device).uniform_(-0.75, 0.75) * span
-        offset[2] = torch.empty((), device=device).uniform_(-0.10, 0.90) * span[2]
+        offset = torch.empty(3, device=device).uniform_(-0.60, 0.60) * span
+        offset[2] = torch.empty((), device=device).uniform_(-0.08, 0.75) * span[2]
 
         cluster_center = center + offset
         sigma = torch.empty(3, device=device)
-        sigma[0].uniform_(0.01, 0.08)
-        sigma[1].uniform_(0.01, 0.08)
-        sigma[2].uniform_(0.01, 0.12)
+        sigma[0].uniform_(0.01, 0.06)
+        sigma[1].uniform_(0.01, 0.06)
+        sigma[2].uniform_(0.01, 0.09)
         sigma = sigma * span
 
         cluster = cluster_center.view(1, 3) + torch.randn(cluster_n, 3, device=device) * sigma.view(1, 3)
@@ -507,7 +463,7 @@ def random_sparse_outlier_clusters(
 def random_branch_emphasis_loss(
     points: torch.Tensor,
     keep_core_ratio: float = 0.90,
-    keep_periphery_ratio: float = 0.35,
+    keep_periphery_ratio: float = 0.45,
 ) -> torch.Tensor:
     """
     Preferentially removes peripheral points. This approximates weak branch visibility.
@@ -661,12 +617,12 @@ class NpyDatasetAug(torch.utils.data.Dataset):
         label = torch.tensor(label_value).long()
 
         if self.training:
-            cloud = add_gaussian_noise(cloud, std=0.02)
+            cloud = add_gaussian_noise(cloud, std=0.015)
             cloud = rotate_points(cloud, device=self.device)
             cloud = tilt_points(
                 cloud,
-                max_x_tilt_degrees=15,
-                max_y_tilt_degrees=15,
+                max_x_tilt_degrees=12,
+                max_y_tilt_degrees=12,
                 device=self.device,
             )
 
