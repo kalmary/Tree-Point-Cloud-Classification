@@ -283,7 +283,7 @@ def test_function(config_dict: dict,
                                  training=False,
                                  device=device_loader,
                                  n_points=16384,
-                                 use_domain_aug=True)
+                                 use_domain_aug=False)
     
     testLoader = DataLoader(
         test_dataset,
