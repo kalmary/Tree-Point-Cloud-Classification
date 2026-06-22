@@ -62,11 +62,13 @@ def _eval_model(config_dict: dict,
     num_classes = config_dict['num_classes']
     ignore_index = OTHERS  # None or int index to ignore in loss/accuracy
 
-    test_dataset = NpyDataset(path_dir=config_dict['data_path_test'],
-                            resolution_xy=config_dict['input_dim'],
-                            training=False,
-                            ignore_index=ignore_index,
-                            device=device_gpu)
+    test_dataset = NpyDatasetAug(path_dir=config_dict['data_path_test'],
+                                 resolution_xy=config_dict['input_dim'],
+                                 training=False,
+                                 ignore_index=ignore_index,
+                                 device=device_gpu,
+                                 n_points=16384,
+                                 use_domain_aug=True)
     
     testLoader = DataLoader(
         test_dataset,
@@ -276,10 +278,12 @@ def test_function(config_dict: dict,
     device_loader = device_gpu
     device_loss = device_gpu
     
-    test_dataset = NpyDataset(path_dir=config_dict['data_path_test'],
-                            resolution_xy=config_dict['input_dim'],
-                            training=False,
-                            device=device_loader)
+    test_dataset = NpyDatasetAug(path_dir=config_dict['data_path_test'],
+                                 resolution_xy=config_dict['input_dim'],
+                                 training=False,
+                                 device=device_loader,
+                                 n_points=16384,
+                                 use_domain_aug=True)
     
     testLoader = DataLoader(
         test_dataset,
