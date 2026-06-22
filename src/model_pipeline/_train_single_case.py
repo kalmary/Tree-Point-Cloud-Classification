@@ -99,7 +99,7 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
 
     weights_t, labels = compute_pos_weights(data_dir=training_dict['data_path_train'],
                                     num_classes=training_dict["num_classes"],
-                                    power=0.35,
+                                    power=0.45,
                                     ignore_index=training_dict["num_classes"])
 
 
@@ -107,7 +107,7 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
 
     weights_v, _ = compute_pos_weights(data_dir=training_dict['data_path_val'],
                                     num_classes=training_dict["num_classes"],
-                                    power=0.35,
+                                    power=0.45,
                                     ignore_index=training_dict["num_classes"])
 
     sampler_t = WeightedRandomSampler(
