@@ -175,8 +175,6 @@ def split_data(work_dir: pth.Path, goal_dir: pth.Path, folder_split: dict):
     copy_files(test_files, test_pth)
     copy_files(val_files, val_pth)
 
-    return labels
-
 
 
 def rebalance_dataset(work_dir: pth.Path, folder_split: dict, tolerance=0.03):
@@ -379,12 +377,9 @@ def main():
     })
 
     decimate_chunk_laz(source, decimated)
-    labels = split_data(decimated, splitted, folder_split)
+    split_data(decimated, splitted, folder_split)
 
-    metadata = find_metadata(work_dir=splitted)
-
-
-    rebalance_dataset(decimated, folder_split)
+    find_metadata(work_dir=splitted, dir_save=splitted.parent, verbose=True)
 
 
 if __name__ == '__main__':
