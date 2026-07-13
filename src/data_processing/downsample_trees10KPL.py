@@ -114,7 +114,7 @@ def decimate_chunk_laz(work_dir: pth.Path, goal_dir: pth.Path, n_points: int = 1
             labels = np.full((n_points, 1), fill_value=label, dtype=np.int64)  # (N, 1)
             points_with_label = np.concatenate([xyz, labels], axis=1)  # (N, 4)
 
-            out_path = goal_dir / f'{path.stem}_{completely_inside}_{label}.npy'
+            out_path = goal_dir / f'{path.stem}_{tree_id}_{completely_inside}_{label}.npy'
             np.save(out_path, points_with_label)
 
 
