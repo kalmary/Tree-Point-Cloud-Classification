@@ -78,7 +78,7 @@ def decimate_chunk_laz(work_dir: pth.Path, goal_dir: pth.Path, n_points: int = 1
             continue
 
         full_xyz = np.vstack((las.x, las.y, las.z)).T.astype(np.float32)
-        full_xyz -= xyz.mean(axis=0)  # center
+        full_xyz -= full_xyz.mean(axis=0)  # center
 
         full_treeID = np.asarray(las.treeID)
         full_treeSP = np.asarray(las.treeSP)
@@ -90,6 +90,10 @@ def decimate_chunk_laz(work_dir: pth.Path, goal_dir: pth.Path, n_points: int = 1
             
             tree_mask = full_treeID == tree_id
             xyz = full_xyz[tree_mask]
+            tree_height = xyz[:, 2].max() - xyz[:, 2].min()
+            if tree_height < 1.4:
+                continue
+
             label = full_treeSP[tree_mask][0]  # Assuming all points of the same tree have the same species label
             if label == 0:
                 continue  # Skip trees with species label 0 (not part of any species)
@@ -104,9 +108,6 @@ def decimate_chunk_laz(work_dir: pth.Path, goal_dir: pth.Path, n_points: int = 1
                 sampled_idx = np.random.choice(n, n_points, replace=True)
             elif n == n_points:
                 sampled_idx = np.arange(n)
-            else:
-                # print(f'[SKIP] {path.name} has only {n} points (< {n_points // 2}), skipping.')
-                continue
 
             xyz = xyz[sampled_idx]  # (N, 3)
 
@@ -136,6 +137,7 @@ def split_data(work_dir: pth.Path, goal_dir: pth.Path, folder_split: dict):
     all_files = list(work_dir.rglob('*.npy'))
     labels = [f.stem.split('_')[-1] for f in all_files]  # Extract labels from filenames
     encoder = LabelEncoder()  # Encode labels so they start from 0 and are consecutive integers
+    labels_org = np.array(labels).copy()
     labels = encoder.fit_transform(labels)
 
     total_files = len(all_files)
@@ -174,6 +176,8 @@ def split_data(work_dir: pth.Path, goal_dir: pth.Path, folder_split: dict):
     copy_files(train_files, train_pth)
     copy_files(test_files, test_pth)
     copy_files(val_files, val_pth)
+
+    return labels_org
 
 
 
@@ -259,15 +263,16 @@ def argparser():
         help="Folder split ratios for train, test, validation."
     )
 
-    parser.add_argument('--metadata_path', type=Union[str, pth.Path], default=None)
-    parser.add_argument('--species_path',  type=Union[str, pth.Path], default=None)
+    parser.add_argument('--metadata_path', type=str, default="")
 
     return parser.parse_args()
 
-def find_metadata(work_dir: pth.Path, dir_save: Optional[pth.Path]=None, verbose: bool = False) -> tuple[pd.DataFrame, pd.DataFrame]:
+def find_metadata(work_dir: pth.Path, labels_org: np.ndarray, species: pd.DataFrame, dir_save: Optional[pth.Path]=None, verbose: bool = False) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     args:
         work_dir: directory containing the dataset
+        labels_org: original labels array
+        species: DataFrame containing species metadata
         dir_save: optional argument, if given metadata will be saved to this directory
         verbose: if True, will print metadata
     returns:
@@ -280,12 +285,28 @@ def find_metadata(work_dir: pth.Path, dir_save: Optional[pth.Path]=None, verbose
     files = list(work_dir.rglob('*.npy'))
     if not files:
         raise ValueError(f"No .npy files found in {work_dir}")
-    
+
+    required_columns = {'species_code', 'species'}
+    missing_columns = required_columns - set(species.columns)
+    if missing_columns:
+        raise ValueError(f"Missing species metadata columns: {sorted(missing_columns)}")
+
+    encoder = LabelEncoder()
+    encoder.fit(labels_org)
+    species_names = (
+        species
+        .assign(species_code=lambda df: df['species_code'].astype(str))
+        .drop_duplicates('species_code')
+        .set_index('species_code')['species']
+        .to_dict()
+    )
+
     rows = []
     for file_num, file in enumerate(sorted(files)):
         label = int(file.stem.rsplit('_', 1)[-1])
+        original_label = encoder.inverse_transform([label])[0]
         folder_name = file.parent.name
-        species_name = f'species_{label}'
+        species_name = species_names.get(str(original_label), f'species_{original_label}')
         rows.append({
             'file_num': file_num,
             'file_name': file.name,
@@ -367,8 +388,7 @@ def main():
     metadata_path = pth.Path(parser.metadata_path) if parser.metadata_path else \
                     pth.Path(__file__).parent.parent.parent / 'data/species_id_names.csv'
 
-    with metadata_path.open('r') as f:
-        species = f.read().splitlines()
+    species = pd.read_csv(metadata_path)
 
     folder_split = convert_str_values({
         'train_ratio': parser.folder_split[0],
@@ -377,9 +397,13 @@ def main():
     })
 
     decimate_chunk_laz(source, decimated)
-    split_data(decimated, splitted, folder_split)
+    labels_org = split_data(decimated, splitted, folder_split)
 
-    find_metadata(work_dir=splitted, dir_save=splitted.parent, verbose=True)
+    find_metadata(work_dir=splitted,
+                  species=species,
+                  labels_org=labels_org,
+                  dir_save=splitted.parent,
+                  verbose=True)
 
 
 if __name__ == '__main__':
