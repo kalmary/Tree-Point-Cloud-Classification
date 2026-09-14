@@ -1,9 +1,9 @@
-import requests
 import math
 from collections import Counter
-from typing import Optional
-from pyproj import Transformer
+
 import numpy as np
+import requests
+from pyproj import Transformer
 
 SPECIES_MODEL = {
     0: ['Pinus', 'sosna'],
@@ -22,7 +22,8 @@ SPECIES_MODEL = {
     13: ['Corylus', 'leszczyna'],
     14: ['Crataegus', 'głóg'],
     15: ['Incorrect segmentation', 'Błędna segmentacja'],
-    16: ['Others', 'Inne']
+    16: ['Others', 'Inne'],
+    17: ['Shrub', 'krzew']
 }
 
 SPECIES_DBL = {
@@ -50,7 +51,8 @@ SPECIES_DBL = {
     "TP":   ["Populus_alba",           "Topola biała",         21],
     "TP.C": ["Populus_nigra",          "Topola czarna",        22],
     "O_S":  ["Others",                 "Inne",                 23],
-    "I_S":  ["Incorrect segmentation", "Błędna segmentacja",   24]
+    "I_S":  ["Incorrect segmentation", "Błędna segmentacja",   24],
+    "SH":   ["Shrub",        "krzew",                     28] # 25?
 }
 
 RDLP_TO_COLLECTION = {
@@ -74,7 +76,7 @@ RDLP_TO_COLLECTION = {
 }
 
 
-class BDLCall():
+class BDLCall:
 
     def __init__(
         self,
@@ -95,15 +97,15 @@ class BDLCall():
 
         # tile_map: (ix, iy) -> Counter[latin_name, count]
         # tile origin (meters, same CRS as the PCD passed to build_data_map)
-        self._tile_map: Optional[dict] = None
-        self._tile_origin: Optional[tuple] = None   # (x_min, y_min)
+        self._tile_map: dict | None = None
+        self._tile_origin: tuple | None = None   # (x_min, y_min)
         self._tile_crs = None
 
     # ------------------------------------------------------------------
     # HTTP helpers
     # ------------------------------------------------------------------
 
-    def _fetch(self, url: str, params: Optional[dict] = None) -> dict:
+    def _fetch(self, url: str, params: dict | None = None) -> dict:
         r = self.session.get(url, params=params, timeout=60)
         r.raise_for_status()
         return r.json()
@@ -145,7 +147,7 @@ class BDLCall():
     # BDL lookup helpers
     # ------------------------------------------------------------------
 
-    def _get_rdlp_collection(self, lat: float, lon: float) -> Optional[str]:
+    def _get_rdlp_collection(self, lat: float, lon: float) -> str | None:
         url = f"{self.base}/collections/rdlp/items"
         params = {"bbox": f"{lon},{lat},{lon},{lat}", "f": "json"}
         feats = self._fetch(url, params).get("features", [])
@@ -176,10 +178,10 @@ class BDLCall():
     # Species resolution helpers
     # ------------------------------------------------------------------
 
-    def _most_common(self, counts: Counter) -> Optional[int]:
+    def _most_common(self, counts: Counter) -> int | None:
         return self._get_int(counts.most_common(1)[0][0]) if counts else None
 
-    def _most_common_in_genus(self, counts: Counter, genus_latin: str) -> Optional[int]:
+    def _most_common_in_genus(self, counts: Counter, genus_latin: str) -> int | None:
         filtered = Counter({
             sp: n for sp, n in counts.items() if sp.startswith(genus_latin + "_")
         })
@@ -196,6 +198,9 @@ class BDLCall():
 
     def _resolve(self, counts: Counter, input_class: int) -> int:
         # Core match logic shared by both predict paths.
+        if input_class == 17:
+            return self.map_model_label(input_class)
+
         genus_latin = self.species_model[input_class][0]
 
         if genus_latin == "Incorrect segmentation":
@@ -254,6 +259,9 @@ class BDLCall():
         self._tile_crs = crs
 
     def _tile_index(self, x: float, y: float) -> tuple:
+        if self._tile_origin is None or self._tile_map is None:
+            raise RuntimeError("Data map has not been built")
+
         ox, oy = self._tile_origin
         ix = int((x - ox) / self.size_m)
         iy = int((y - oy) / self.size_m)
@@ -275,6 +283,21 @@ class BDLCall():
                 raise ValueError(f"tree_label must be a scalar, got shape {arr.shape}")
             return int(arr[0])
         return int(tree_label)
+
+    def map_model_label(self, model_label) -> int:
+        """Map a model class with an exact detailed-species name to its detailed code."""
+        model_label = self._coerce_label(model_label)
+        model_species = self.species_model.get(model_label)
+        if model_species is None:
+            raise ValueError(f"Unknown model label: {model_label}")
+
+        species_name = model_species[0]
+        detailed_label = self._latin_to_int.get(species_name)
+        if detailed_label is None:
+            raise ValueError(
+                f"Model label {model_label} ({species_name}) has no exact detailed-species mapping"
+            )
+        return detailed_label
 
     def predict(self, pcd: np.ndarray, crs, tree_label) -> int:
         tree_label = self._coerce_label(tree_label)
@@ -299,6 +322,34 @@ class BDLCall():
         cx, cy = transformer.transform(lon, lat)
         counts = self._count_species_in_area(cx, cy, crs)
         return self._resolve(counts, input_class)
+
+
+def test_map_model_label_maps_shrub_to_detailed_code_without_lookup():
+    def fail_lookup(*_args, **_kwargs):
+        raise AssertionError("geographic lookup must not be used")
+
+    bdl = BDLCall()
+    bdl._count_species_in_area = fail_lookup
+
+    assert bdl.map_model_label(17) == 28
+
+
+def test_map_model_label_rejects_model_genus_without_exact_detailed_name():
+    bdl = BDLCall()
+
+    try:
+        bdl.map_model_label(0)
+    except ValueError as exc:
+        assert "no exact detailed-species mapping" in str(exc)
+    else:
+        raise AssertionError("Expected a non-exact model label to be rejected")
+
+
+def test_resolve_maps_shrub_before_normal_species_logic():
+    bdl = BDLCall()
+    counts = Counter({"Pinus_sylvestris": 100})
+
+    assert bdl._resolve(counts, 17) == 28
 
 
 if __name__ == "__main__":
