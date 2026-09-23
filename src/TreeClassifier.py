@@ -1,21 +1,23 @@
+import pathlib as pth
 from typing import Optional, Union
+
 import numpy as np
 import torch
 import torch.nn as nn
-import pathlib as pth
 
 try:
     from .final_files.model_en import EfficientNetClassifier
-    from .utils import load_model, load_json
+    from .utils import load_json, load_model
     from .utils.data_augmentation import cloud2sideViews_torch
 except ImportError:
     try:
         from final_files.model_en import EfficientNetClassifier
-        from utils import load_model, load_json
         from utils.data_augmentation import cloud2sideViews_torch
+
+        from utils import load_json, load_model
     except ImportError:
         from TreeClassification.src.final_files.model_en import EfficientNetClassifier
-        from TreeClassification.src.utils import load_model, load_json
+        from TreeClassification.src.utils import load_json, load_model
         from TreeClassification.src.utils.data_augmentation import cloud2sideViews_torch
 
 class TreeClassifier:
