@@ -125,6 +125,7 @@ celerybeat.pid
 # Environments
 .env
 .venv
+.uv-cache/
 env/
 venv/
 ENV/
@@ -170,5 +171,4 @@ cython_debug/
 # **/final_files/
 **/db.sqlite3
 **/model_configs_bin/
-
 

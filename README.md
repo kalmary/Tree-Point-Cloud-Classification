@@ -58,24 +58,22 @@ cd Tree-Point-Cloud-Classification
 git pull
 git submodule update --init --recursive
 
-git submodule foreach --recursive git checkout main
-git submodule foreach --recursive git pull origin main
+git submodule foreach --recursive git checkout development
 ```
 
-Create and activate a Virtual Environment and install requirements:
+Create the uv environment with Python 3.12 and choose one PyTorch profile:
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-
-# Install all requirements, without pytorch and cuda
-pip install requirements.txt
-
-# Tested on this, but should work with any other version
-pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu128
+uv sync --extra pytorch-cpu  # core runtime, CPU-only
+uv sync --group test --extra pytorch-cpu  # CPU-only on macOS, Windows, or Linux
+# macOS system profile (also CPU): uv sync --group test --extra pytorch-macos
+# Linux with CUDA 13.2: uv sync --group test --extra pytorch-linux-cuda
+# Windows with CUDA 13.2: uv sync --group test --extra pytorch-windows-cuda
 
 # update git submodules
 git submodule update --init --recursive
 ```
+
+The default `basic` group includes LAS/LAZ runtime support. The `test` group adds plotting and development tools. After syncing, `uv run --no-sync` preserves the selected groups and PyTorch profile.
 
 ---
 
@@ -86,7 +84,7 @@ Before training a model, data preprocessing must be done. The script automatical
 sets, rebalances folders to match specified ratios. To do so run:
 
 ```bash
-python src/data_processing/downsample_trees.py
+uv run --no-sync python src/data_processing/downsample_trees.py
     --source_path path/to/raw/data
     --decimated_path path/to/decimated/pcds
     --converted_path path/to/final/processed/files
@@ -109,7 +107,7 @@ Files with `_single` suffix are meant for single training without any optimizati
 To start full training pipeline run:
 ```bash
 cd src/model_pipeline
-python src/model_pipeline/Train_Automated.py --model_name MODEL_NAME --device cuda --mode 3
+uv run --no-sync python src/model_pipeline/Train_Automated.py --model_name MODEL_NAME --device cpu --mode 3
 ```
 Available flags:
 - ``model_name`` - name of your model. Results are stored in ``src/model_pipeline/training_results/MODEL_NAME``,
@@ -139,7 +137,7 @@ To evaluate trained model, run Eval_TreeClassification.py with proper flags:
 
 ```bash
 cd src/model_pipeline
-python src/model_pipeline/Eval_TreeClassification.py --model_name MODEL_NAME --device cuda --mode 1
+uv run --no-sync python src/model_pipeline/Eval_TreeClassification.py --model_name MODEL_NAME --device cpu --mode 1
 ```
 ``model_name`` flag must be the exact name of model you got from training, but without its extension name. For example:
 ```
