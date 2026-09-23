@@ -6,14 +6,17 @@
 
 **Design:** `../../../docs/rebuild.md`
 
+**Branch requirement:** Perform all rebuild work in this repository and its nested `nn_utils` submodule on `development`. Verify both branches first and request explicit approval before creating or switching either one.
+
 ## Task 1: Establish the uv project
 
-- [ ] Create `.python-version`, `pyproject.toml`, and `uv.lock` for Python 3.12.
-- [ ] Derive minimal direct dependencies from imports rather than copying the frozen requirements file.
-- [ ] Define `basic` for inference/headless BDL use and `test` including `basic`, `pytest`, `matplotlib`, and `pyvista`.
-- [ ] Configure one compatible current-stable PyTorch/Torchvision/Torchaudio set for official CPU and CUDA indexes.
-- [ ] Declare the shared `nn_utils` relationship explicitly and verify against its rebuilt contract.
-- [ ] Verify clean basic/test syncs and PyTorch capability output.
+- [x] Create `.python-version`, `pyproject.toml`, and `uv.lock` for Python 3.12.
+- [x] Derive minimal direct dependencies from imports rather than copying the frozen requirements file.
+- [x] Define `basic` for inference/headless BDL use and `test` including `basic`, `pytest`, `matplotlib`, and `pyvista`.
+- [x] Keep plotting imports out of normal inference and BDL imports.
+- [x] Configure PyTorch 2.14/Torchvision 0.29 CPU and CUDA 13.2 profiles; Torchaudio is not used.
+- [x] Preserve and verify the nested `nn_utils` relationship.
+- [x] Verify clean basic/test syncs and current public imports.
 
 ## Task 2: Characterize inference and BDL behavior
 
