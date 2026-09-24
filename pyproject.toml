@@ -84,3 +84,4 @@ explicit = true
 
 [tool.pytest.ini_options]
 python_files = ["test_*.py"]
+testpaths = ["src/BDL_api.py"]
