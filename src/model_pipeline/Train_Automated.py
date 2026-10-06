@@ -24,14 +24,16 @@ import optuna
 from tqdm import tqdm
 
 
-src_dir = pth.Path(__file__).parent.parent
-sys.path.append(str(src_dir))
-
-from _train_single_case import train_model
-from utils import load_json, save2json, save_model, convert_str_values
-from utils import Plotter
-
-from model_pipeline.model_en import EfficientNetClassifier
+if __package__:
+    from ._train_single_case import train_model
+    from .model_en import EfficientNetClassifier
+    from ..utils.nn_utils import load_json, save2json, save_model, convert_str_values, Plotter
+else:
+    src_dir = pth.Path(__file__).parent.parent
+    sys.path.insert(0, str(src_dir))
+    from _train_single_case import train_model
+    from model_en import EfficientNetClassifier
+    from utils.nn_utils import load_json, save2json, save_model, convert_str_values, Plotter
 
 
 def save_metric_history_csv(result_hist: dict,

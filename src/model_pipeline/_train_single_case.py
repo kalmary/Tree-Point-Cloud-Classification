@@ -1,7 +1,5 @@
 import torch
 import torch.nn as nn
-import os
-import sys
 import warnings
 from typing import Union, Generator
 from tqdm import tqdm
@@ -14,11 +12,20 @@ import torch.multiprocessing as mp
 from torch.utils.data import DataLoader, WeightedRandomSampler
 from torch.optim.lr_scheduler import OneCycleLR
 
-from model_en import EfficientNetClassifier
-
-from _data_loader import *
-from utils import compute_pos_weights, get_dataset_len, calculate_accuracy, FocalLoss, ArcFaceFocalLoss
-from utils import wrap_hist
+if __package__:
+    from .model_en import EfficientNetClassifier
+    from ._data_loader import NpyDatasetAug
+    from ..utils.nn_utils import (
+        compute_pos_weights, get_dataset_len, calculate_accuracy,
+        FocalLoss, ArcFaceFocalLoss, wrap_hist,
+    )
+else:
+    from model_en import EfficientNetClassifier
+    from _data_loader import NpyDatasetAug
+    from utils.nn_utils import (
+        compute_pos_weights, get_dataset_len, calculate_accuracy,
+        FocalLoss, ArcFaceFocalLoss, wrap_hist,
+    )
 
 warning_to_filter = "Attempting to run cuBLAS, but there was no current CUDA context!"
 
@@ -28,11 +35,6 @@ warnings.filterwarnings(
     message=warning_to_filter, 
     category=UserWarning
 )
-
-
-nerual_net_dir = os.path.dirname(__file__)
-sys.path.append(nerual_net_dir)
-
 
 
 def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[nn.Module, dict], None, None],

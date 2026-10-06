@@ -13,11 +13,12 @@ from sklearn.preprocessing import LabelEncoder
 import laspy
 import numpy as np
 
-import sys
-main_dir = pth.Path(__file__).parent.parent
-sys.path.append(str(main_dir))
-
-from utils import convert_str_values, load_json, save2json
+if __package__:
+    from ..utils.nn_utils import convert_str_values, load_json, save2json
+else:
+    main_dir = pth.Path(__file__).parent.parent
+    sys.path.insert(0, str(main_dir))
+    from utils.nn_utils import convert_str_values, load_json, save2json
 import pandas as pd
 
 from typing import Optional

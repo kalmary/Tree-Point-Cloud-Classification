@@ -7,13 +7,15 @@ from typing import Union, Optional
 
 import torch
 
-import os
-import sys
-neural_net_dir = os.path.dirname(pth.Path(__file__).parent)
-sys.path.append(neural_net_dir)
+if __package__:
+    from ..utils.pcd_manipulation import rotate_points, tilt_points, transform_points, add_gaussian_noise
+    from ..utils.data_augmentation import cloud2sideViews_torch
+else:
+    import sys
 
-from utils.pcd_manipulation import rotate_points, tilt_points, transform_points, add_gaussian_noise
-from utils.data_augmentation import cloud2sideViews_torch
+    sys.path.insert(0, str(pth.Path(__file__).parent.parent))
+    from utils.pcd_manipulation import rotate_points, tilt_points, transform_points, add_gaussian_noise
+    from utils.data_augmentation import cloud2sideViews_torch
 
 
 

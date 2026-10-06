@@ -12,16 +12,25 @@ from torchinfo import summary
 from torch.utils.data import DataLoader
 
 
-from _data_loader import *
-from model_pipeline.model import CNN2D_Residual
-from model_pipeline.model_en import EfficientNetClassifier
-
-current_dir = pth.Path(__file__).parent.parent
-sys.path.append(str(current_dir.parent))
-
-from utils import load_json, load_model, convert_str_values
-from utils import calculate_accuracy, get_intLabels, get_Probabilities,get_dataset_len, compute_pos_weights, FocalLoss
-from utils import Plotter, ClassificationReport
+if __package__:
+    from ._data_loader import NpyDatasetAug
+    from .model import CNN2D_Residual
+    from .model_en import EfficientNetClassifier
+    from ..utils.nn_utils import (
+        load_json, load_model, convert_str_values, calculate_accuracy,
+        get_intLabels, get_Probabilities, get_dataset_len, compute_pos_weights,
+        FocalLoss, Plotter, ClassificationReport,
+    )
+else:
+    sys.path.insert(0, str(pth.Path(__file__).parent.parent))
+    from _data_loader import NpyDatasetAug
+    from model import CNN2D_Residual
+    from model_en import EfficientNetClassifier
+    from utils.nn_utils import (
+        load_json, load_model, convert_str_values, calculate_accuracy,
+        get_intLabels, get_Probabilities, get_dataset_len, compute_pos_weights,
+        FocalLoss, Plotter, ClassificationReport,
+    )
 
 OTHERS = None
 OTHERS = 15
@@ -158,7 +167,10 @@ def prediction_accuracy(predictions: np.ndarray,
 
 
 def bdl_species_to_model_label(species_label: int) -> int:
-    from src.BDL_api import SPECIES_DBL, SPECIES_MODEL
+    if __package__:
+        from ..BDL_api import SPECIES_DBL, SPECIES_MODEL
+    else:
+        from BDL_api import SPECIES_DBL, SPECIES_MODEL
 
     model_label_by_latin_name = {value[0]: label for label, value in SPECIES_MODEL.items()}
 
@@ -191,7 +203,10 @@ def bdl_refined_predictions(predictions: np.ndarray,
                             crs,
                             size_m: int = 5000,
                             model_based: bool = False) -> np.ndarray:
-    from src.BDL_api import BDLCall
+    if __package__:
+        from ..BDL_api import BDLCall
+    else:
+        from BDL_api import BDLCall
 
     tree_bdl = BDLCall(size_m=size_m, model_based=model_based)
     tree_bdl.build_data_map(points=map_points, crs=crs)
