@@ -5,20 +5,14 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-try:
+if __package__:
     from .final_files.model_en import EfficientNetClassifier
-    from .utils import load_json, load_model
     from .utils.data_augmentation import cloud2side_views_torch
-except ImportError:
-    try:
-        from final_files.model_en import EfficientNetClassifier
-        from utils.data_augmentation import cloud2side_views_torch
-
-        from utils import load_json, load_model
-    except ImportError:
-        from tree_classification.src.final_files.model_en import EfficientNetClassifier
-        from tree_classification.src.utils import load_json, load_model
-        from tree_classification.src.utils.data_augmentation import cloud2side_views_torch
+    from .utils.nn_utils import load_json, load_model
+else:
+    from final_files.model_en import EfficientNetClassifier
+    from utils.data_augmentation import cloud2side_views_torch
+    from utils.nn_utils import load_json, load_model
 
 class TreeClassifier:
     def __init__(self,

@@ -1,11 +1,12 @@
 from typing import Union
 
-from torchvision.transforms import GaussianBlur
 import torch
 import numpy as np
 
 
 def gaussian_blur(img: Union[torch.Tensor, np.ndarray], kernel_size=(5, 5), sigma=1.5):
+    from torchvision.transforms import GaussianBlur
+
     if isinstance(img, np.ndarray):
         img = torch.from_numpy(img).unsqueeze(0).unsqueeze(0)
         img = img.float()

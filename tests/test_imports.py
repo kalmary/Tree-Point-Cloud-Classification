@@ -89,3 +89,36 @@ def test_direct_evaluation_preserves_species_metadata_import():
     )
 
     assert result.returncode == 0, result.stderr
+
+
+def test_tree_classifier_import_does_not_load_offline_utilities():
+    code = """
+import sys
+
+from src.tree_classifier import TreeClassifier
+
+forbidden = {
+    'h5py',
+    'matplotlib',
+    'optuna',
+    'pyvista',
+    'seaborn',
+    'torchinfo',
+    'src.utils.pcd_manipulation',
+    'src.utils.nn_utils.src.accuracy_metrics',
+    'src.utils.nn_utils.src.evaluation_plot_tools',
+    'src.utils.nn_utils.src.loss_functions',
+    'src.utils.nn_utils.src.training_callbacks',
+}
+loaded = forbidden & sys.modules.keys()
+assert not loaded, loaded
+assert TreeClassifier.__module__ == 'src.tree_classifier'
+"""
+    result = subprocess.run(
+        [sys.executable, '-c', code],
+        cwd=Path(__file__).resolve().parents[1],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
