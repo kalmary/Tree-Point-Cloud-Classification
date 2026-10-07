@@ -8,17 +8,17 @@ import torch.nn as nn
 try:
     from .final_files.model_en import EfficientNetClassifier
     from .utils import load_json, load_model
-    from .utils.data_augmentation import cloud2sideViews_torch
+    from .utils.data_augmentation import cloud2side_views_torch
 except ImportError:
     try:
         from final_files.model_en import EfficientNetClassifier
-        from utils.data_augmentation import cloud2sideViews_torch
+        from utils.data_augmentation import cloud2side_views_torch
 
         from utils import load_json, load_model
     except ImportError:
-        from TreeClassification.src.final_files.model_en import EfficientNetClassifier
-        from TreeClassification.src.utils import load_json, load_model
-        from TreeClassification.src.utils.data_augmentation import cloud2sideViews_torch
+        from tree_classification.src.final_files.model_en import EfficientNetClassifier
+        from tree_classification.src.utils import load_json, load_model
+        from tree_classification.src.utils.data_augmentation import cloud2side_views_torch
 
 class TreeClassifier:
     def __init__(self,
@@ -60,7 +60,7 @@ class TreeClassifier:
             return np.array([15], dtype=np.int64)
 
         cloud = torch.as_tensor(cloud, dtype=torch.float64)
-        imgs = cloud2sideViews_torch(cloud, resolution_xy=350)
+        imgs = cloud2side_views_torch(cloud, resolution_xy=350)
         if imgs.ndim == 3:
             imgs = imgs.unsqueeze(0)
         imgs = imgs.to(self.device)      

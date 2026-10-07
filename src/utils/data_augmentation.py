@@ -17,7 +17,7 @@ def gaussian_blur(img: Union[torch.Tensor, np.ndarray], kernel_size=(5, 5), sigm
 
     return blurred_img.to(img.device)
 
-def cloud2sideViews_torch_with_reference_cube(
+def cloud2side_views_torch_with_reference_cube(
     points: torch.Tensor,
     reference_points: torch.Tensor,
     resolution_xy: int,
@@ -114,7 +114,7 @@ def cloud2sideViews_torch_with_reference_cube(
             min_val = values.min()
             max_val = values.max()
 
-            # Same convention as cloud2sideViews_torch:
+            # Same convention as cloud2side_views_torch:
             # smaller distance to viewer -> brighter.
             normalised = (max_val - values) / (max_val - min_val + 1e-8)
             normalised = normalised * (1.0 - 1.0 / 255.0) + (1.0 / 255.0)
@@ -144,7 +144,7 @@ def cloud2sideViews_torch_with_reference_cube(
 
     return torch.stack(views, dim=0).to(dtype=torch.float32)
 
-def cloud2sideViews_torch(points: torch.Tensor,
+def cloud2side_views_torch(points: torch.Tensor,
                        resolution_xy: int | None = None,
                        margin_ratio: float = 0.05) -> torch.Tensor:
  

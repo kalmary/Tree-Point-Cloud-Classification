@@ -9,13 +9,13 @@ import torch
 
 if __package__:
     from ..utils.pcd_manipulation import rotate_points, tilt_points, transform_points, add_gaussian_noise
-    from ..utils.data_augmentation import cloud2sideViews_torch
+    from ..utils.data_augmentation import cloud2side_views_torch
 else:
     import sys
 
     sys.path.insert(0, str(pth.Path(__file__).parent.parent))
     from utils.pcd_manipulation import rotate_points, tilt_points, transform_points, add_gaussian_noise
-    from utils.data_augmentation import cloud2sideViews_torch
+    from utils.data_augmentation import cloud2side_views_torch
 
 
 
@@ -637,7 +637,7 @@ class NpyDatasetAug(torch.utils.data.Dataset):
         cloud = _safe_points(cloud)
         cloud = _resample_points(cloud, n_points=self.n_points)
 
-        views = cloud2sideViews_torch(
+        views = cloud2side_views_torch(
             cloud,
             resolution_xy=self.resolution_xy,
         )

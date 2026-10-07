@@ -21,7 +21,7 @@ import pytest
 @pytest.mark.parametrize("parent_project", [False, True])
 def test_workflows_import_with_their_own_utilities(module, parent_project, tmp_path):
     project = Path(__file__).resolve().parents[1]
-    prefix = "src.TreeClassification.src" if parent_project else "src"
+    prefix = "src.tree_classification.src" if parent_project else "src"
     code = f"""
 import importlib
 
