@@ -5,6 +5,6 @@ from .data_augmentation import *
 
 
 def __getattr__(name):
-    if name in {"Plotter", "ClassificationReport"}:
+    if name in {"Plotter", "classification_report"}:
         return getattr(_nn_utils, name)
     raise AttributeError(name)

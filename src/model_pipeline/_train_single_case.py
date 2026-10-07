@@ -17,14 +17,14 @@ if __package__:
     from ._data_loader import NpyDatasetAug
     from ..utils.nn_utils import (
         compute_pos_weights, get_dataset_len, calculate_accuracy,
-        FocalLoss, ArcFaceFocalLoss, wrap_hist,
+        FocalLoss, wrap_hist,
     )
 else:
     from model_en import EfficientNetClassifier
     from _data_loader import NpyDatasetAug
     from utils.nn_utils import (
         compute_pos_weights, get_dataset_len, calculate_accuracy,
-        FocalLoss, ArcFaceFocalLoss, wrap_hist,
+        FocalLoss, wrap_hist,
     )
 
 warning_to_filter = "Attempting to run cuBLAS, but there was no current CUDA context!"

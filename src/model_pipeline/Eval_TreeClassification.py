@@ -18,8 +18,8 @@ if __package__:
     from .model_en import EfficientNetClassifier
     from ..utils.nn_utils import (
         load_json, load_model, convert_str_values, calculate_accuracy,
-        get_intLabels, get_Probabilities, get_dataset_len, compute_pos_weights,
-        FocalLoss, Plotter, ClassificationReport,
+        get_int_labels, get_probabilities, get_dataset_len, compute_pos_weights,
+        FocalLoss, Plotter, classification_report,
     )
 else:
     sys.path.insert(0, str(pth.Path(__file__).parent.parent))
@@ -28,8 +28,8 @@ else:
     from model_en import EfficientNetClassifier
     from utils.nn_utils import (
         load_json, load_model, convert_str_values, calculate_accuracy,
-        get_intLabels, get_Probabilities, get_dataset_len, compute_pos_weights,
-        FocalLoss, Plotter, ClassificationReport,
+        get_int_labels, get_probabilities, get_dataset_len, compute_pos_weights,
+        FocalLoss, Plotter, classification_report,
     )
 
 OTHERS = None
@@ -131,8 +131,8 @@ def _eval_model(config_dict: dict,
 
             all_labels.extend(batch_y.cpu().tolist())
 
-            probs = get_Probabilities(outputs.cpu())
-            int_preds = get_intLabels(probs)
+            probs = get_probabilities(outputs.cpu())
+            int_preds = get_int_labels(probs)
 
             all_probs = np.concatenate([all_probs, probs.numpy()], axis=0)
             all_predictions.extend(int_preds.numpy())
@@ -251,7 +251,7 @@ def eval_model_front(config_dict: dict,
     plotter.cnf_matrix(f'cnf_{model_name}.png', all_labels, all_predictions)
     plotter.threshold_hist(f'threshold_hist_{model_name}.pdf', all_probs)
 
-    ClassificationReport(file_path=plot_dir.joinpath(f'classification_report_{model_name}.txt'),
+    classification_report(file_path=plot_dir.joinpath(f'classification_report_{model_name}.txt'),
                         pred=all_predictions,
                         target=all_labels)
 
@@ -277,7 +277,7 @@ def eval_model_front(config_dict: dict,
     #     print('='*20)
 
     #     plotter.cnf_matrix(f'cnf_bdl_{model_name}.png', all_labels, bdl_predictions)
-    #     ClassificationReport(file_path=plot_dir.joinpath(f'classification_report_bdl_{model_name}.txt'),
+    #     classification_report(file_path=plot_dir.joinpath(f'classification_report_bdl_{model_name}.txt'),
     #                         pred=bdl_predictions,
     #                         target=all_labels)
     # else:
