@@ -92,9 +92,9 @@ class ResBottleneckBlock2D(nn.Module):
         return out
 
 
-class CNN2D_Residual(nn.Module):
+class Cnn2dResidual(nn.Module):
     def __init__(self, config, num_classes):
-        super(CNN2D_Residual, self).__init__()
+        super().__init__()
 
         dropout = config['global_params']['dropout']
 
@@ -221,7 +221,7 @@ if __name__ == "__main__":
  
     x = torch.randn(batch_size, dummy_config["in_channels"], resolution, resolution)
  
-    model = CNN2D_Residual(config=dummy_config, num_classes=num_classes)
+    model = Cnn2dResidual(config=dummy_config, num_classes=num_classes)
     model.eval()
  
     with torch.no_grad():

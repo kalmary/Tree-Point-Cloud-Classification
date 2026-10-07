@@ -76,7 +76,7 @@ RDLP_TO_COLLECTION = {
 }
 
 
-class BDLCall:
+class BdlCall:
 
     def __init__(
         self,
@@ -328,14 +328,14 @@ def test_map_model_label_maps_shrub_to_detailed_code_without_lookup():
     def fail_lookup(*_args, **_kwargs):
         raise AssertionError("geographic lookup must not be used")
 
-    bdl = BDLCall()
+    bdl = BdlCall()
     bdl._count_species_in_area = fail_lookup
 
     assert bdl.map_model_label(17) == 28
 
 
 def test_map_model_label_rejects_model_genus_without_exact_detailed_name():
-    bdl = BDLCall()
+    bdl = BdlCall()
 
     try:
         bdl.map_model_label(0)
@@ -346,14 +346,14 @@ def test_map_model_label_rejects_model_genus_without_exact_detailed_name():
 
 
 def test_resolve_maps_shrub_before_normal_species_logic():
-    bdl = BDLCall()
+    bdl = BdlCall()
     counts = Counter({"Pinus_sylvestris": 100})
 
     assert bdl._resolve(counts, 17) == 28
 
 
 if __name__ == "__main__":
-    bdl = BDLCall(size_m=5000, model_based=True)
+    bdl = BdlCall(size_m=5000, model_based=True)
     print(bdl.find_species(53.643773, 22.465687, 12, crs="EPSG:2180"))
 
     # size_m powinno być w init 

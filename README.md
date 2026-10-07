@@ -30,9 +30,9 @@
 ├── data_processing
 │   └── downsample_trees.py        #Program for preprocessing point cloud files. Creates hdf5 files for training, validation and testing                    
 ├── model_pipeline
-│   ├── Train_Automated.py          #Main Python Program for training 
+│   ├── train_automated.py          #Main Python Program for training
 │   ├── _data_loader.py
-│   ├── Eval_TreeClassification.py  #Main Python Program for evaluating outputs
+│   ├── eval_tree_classification.py  #Main Python Program for evaluating outputs
 │   ├── model.py                    #ResNet model, configurable from dictionary
 │   ├── model_configs               #Folder containing all architecture config files
 │   ├── config_files                #Folder containing all parameters config files
@@ -85,9 +85,9 @@ sets, rebalances folders to match specified ratios. To do so run:
 
 ```bash
 uv run --no-sync python src/data_processing/downsample_trees.py
-    --source_path path/to/raw/data
-    --decimated_path path/to/decimated/pcds
-    --converted_path path/to/final/processed/files
+    --source-path path/to/raw/data
+    --decimated-path path/to/decimated/pcds
+    --converted-path path/to/final/processed/files
 ```
 Paths used when processing:
 - source_path: directory with raw (.LAZ by default) point clouds,
@@ -107,7 +107,7 @@ Files with `_single` suffix are meant for single training without any optimizati
 To start full training pipeline run:
 ```bash
 cd src/model_pipeline
-uv run --no-sync python src/model_pipeline/Train_Automated.py --model_name MODEL_NAME --device cpu --mode 3
+uv run --no-sync python src/model_pipeline/train_automated.py --model-name MODEL_NAME --device cpu --mode 3
 ```
 Available flags:
 - ``model_name`` - name of your model. Results are stored in ``src/model_pipeline/training_results/MODEL_NAME``,
@@ -119,7 +119,7 @@ Available flags:
     - `3` - check models - run this to get a rough idea of model resource demands.
  
 
-For most optimal results we recommend using options based on multidimensional space of hyperparameters. If you choose Optuna based option you can change ``n_trials`` in ``main`` function of ``Train_Automated.py``:
+For most optimal results we recommend using options based on multidimensional space of hyperparameters. If you choose Optuna based option you can change ``n_trials`` in ``main`` function of ``train_automated.py``:
 ```python
 optuna_based_training(exp_config=exp_configs,
                       model_name=model_name,
@@ -133,11 +133,11 @@ For more guidance/ guidance when running code, run it with ``--help`` flag.
 
 ### 3. Evaluation <a name="evaluation"></a>
 
-To evaluate trained model, run Eval_TreeClassification.py with proper flags:
+To evaluate trained model, run eval_tree_classification.py with proper flags:
 
 ```bash
 cd src/model_pipeline
-uv run --no-sync python src/model_pipeline/Eval_TreeClassification.py --model_name MODEL_NAME --device cpu --mode 1
+uv run --no-sync python src/model_pipeline/eval_tree_classification.py --model-name MODEL_NAME --device cpu --mode 1
 ```
 ``model_name`` flag must be the exact name of model you got from training, but without its extension name. For example:
 ```
@@ -155,16 +155,16 @@ Evaluation mode output are plots:
 As previously, you can run this script with ``--help`` flag.
 
 For inference, use:
-- ``src/TreeClassifier.py`` - ``TreeClassifier`` loads a trained model and predicts tree classes from point cloud arrays,
-- ``src/BDL_api.py`` - ``BDLCall`` uses BDL data to modify model output labels with aid of [Bank Danych o Lasach](https://www.bdl.lasy.gov.pl/portal/).
+- ``src/tree_classifier.py`` - ``TreeClassifier`` loads a trained model and predicts tree classes from point cloud arrays,
+- ``src/bdl_api.py`` - ``BdlCall`` uses BDL data to modify model output labels with aid of [Bank Danych o Lasach](https://www.bdl.lasy.gov.pl/portal/).
 
 Example usage:
 ```python
 import numpy as np
 import torch
 
-from src.TreeClassifier import TreeClassifier
-from src.BDL_api import BDLCall
+from src.tree_classifier import TreeClassifier
+from src.bdl_api import BdlCall
 from src.final_files.model_en import EfficientNetClassifier
 
 config_path = "src/final_files/ResNetTreeV0_61_config.json"
@@ -180,7 +180,7 @@ classifier = TreeClassifier(
 cloud = np.load("path/to/tree.npy")
 model_label = classifier.predict(cloud)
 
-bdl = BDLCall(size_m=5000, model_based=True)
+bdl = BdlCall(size_m=5000, model_based=True)
 species_label = bdl.predict(cloud, crs="EPSG:2180", tree_label=model_label)
 ```
 

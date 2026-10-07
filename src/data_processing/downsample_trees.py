@@ -257,19 +257,19 @@ def argparser():
         formatter_class=argparse.RawTextHelpFormatter
     )
 
-    parser.add_argument('--source_path',    type=str, default="")
-    parser.add_argument('--decimated_path', type=str, default="")
-    parser.add_argument('--converted_path', type=str, default="")
+    parser.add_argument('--source-path',    type=str, default="")
+    parser.add_argument('--decimated-path', type=str, default="")
+    parser.add_argument('--converted-path', type=str, default="")
 
     parser.add_argument(
-        '--folder_split',
+        '--folder-split',
         type=Union[list[int], list[str]],
         default=[0.7, 0.2, 0.1],
         help="Folder split ratios for train, test, validation."
     )
 
-    parser.add_argument('--metadata_path', type=Union[str, pth.Path], default=None)
-    parser.add_argument('--species_path',  type=Union[str, pth.Path], default=None)
+    parser.add_argument('--metadata-path', type=Union[str, pth.Path], default=None)
+    parser.add_argument('--species-path',  type=Union[str, pth.Path], default=None)
 
     return parser.parse_args()
 

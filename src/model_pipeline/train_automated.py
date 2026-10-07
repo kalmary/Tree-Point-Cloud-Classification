@@ -644,7 +644,7 @@ def argparser():
     )
 
     parser.add_argument(
-        '--model_name',
+        '--model-name',
         type=str,
         default=default_name,
         help=(

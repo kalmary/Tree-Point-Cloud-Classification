@@ -9,13 +9,13 @@ import pytest
 @pytest.mark.parametrize(
     "module",
     [
-        "TreeClassifier",
-        "model_pipeline.Train_Automated",
-        "model_pipeline.Eval_TreeClassification",
+        "tree_classifier",
+        "model_pipeline.train_automated",
+        "model_pipeline.eval_tree_classification",
         "model_pipeline._train_single_case",
         "model_pipeline._data_loader",
         "data_processing.downsample_trees",
-        "data_processing.downsample_trees10KPL",
+        "data_processing.downsample_trees_10k_pl",
     ],
 )
 @pytest.mark.parametrize("parent_project", [False, True])
@@ -50,10 +50,10 @@ if hasattr(module, 'bdl_species_to_model_label'):
 @pytest.mark.parametrize(
     ('script', 'option'),
     [
-        ('model_pipeline/Train_Automated', '--model_name'),
-        ('model_pipeline/Eval_TreeClassification', '--model_name'),
-        ('data_processing/downsample_trees', '--source_path'),
-        ('data_processing/downsample_trees10KPL', '--source_path'),
+        ('model_pipeline/train_automated', '--model-name'),
+        ('model_pipeline/eval_tree_classification', '--model-name'),
+        ('data_processing/downsample_trees', '--source-path'),
+        ('data_processing/downsample_trees_10k_pl', '--source-path'),
     ],
 )
 @pytest.mark.parametrize('module_execution', [False, True])
@@ -79,7 +79,7 @@ def test_direct_evaluation_preserves_species_metadata_import():
         [
             sys.executable, '-c',
             'import runpy; from pathlib import Path; '
-            'module = runpy.run_path(str(Path("Eval_TreeClassification.py").resolve())); '
+            'module = runpy.run_path(str(Path("eval_tree_classification.py").resolve())); '
             'assert module["bdl_species_to_model_label"](0) == 12',
         ],
         cwd=Path(__file__).resolve().parents[1] / 'src/model_pipeline',

@@ -2,7 +2,7 @@
 
 **Goal:** Rebuild the tree-species inference, BDL resolution, preprocessing, training, and evaluation code incrementally while preserving the existing model behavior and root-facing classes.
 
-**Root-facing contracts:** `TreeClassifier.predict(point_cloud)` and the used `BDLCall` construction, mapping, data-map, and prediction methods.
+**Root-facing contracts:** `TreeClassifier.predict(point_cloud)` and the used `BdlCall` construction, mapping, data-map, and prediction methods.
 
 **Design:** `../../../docs/rebuild.md`
 
@@ -37,7 +37,7 @@
 ## Task 4: Separate online inference
 
 - [ ] Keep `TreeClassifier` as the compatibility facade while separating artifact loading, projection, tensor conversion, and prediction.
-- [ ] Keep `BDLCall` as the compatibility facade while separating coordinate handling, request transport, response parsing, and label policy.
+- [ ] Keep `BdlCall` as the compatibility facade while separating coordinate handling, request transport, response parsing, and label policy.
 - [ ] Ensure computational prediction tests need neither network access nor production weights.
 - [ ] Make external failures explicit without silently changing a valid model prediction unless that is current documented behavior.
 
@@ -59,4 +59,4 @@
 
 ## Completion Gate
 
-The project is independently reproducible with uv; `TreeClassifier` and `BDLCall` remain root-compatible; network behavior is isolated and tested; all invocation modes pass; CPU and CUDA verification gates are satisfied.
+The project is independently reproducible with uv; `TreeClassifier` and `BdlCall` remain root-compatible; network behavior is isolated and tested; all invocation modes pass; CPU and CUDA verification gates are satisfied.

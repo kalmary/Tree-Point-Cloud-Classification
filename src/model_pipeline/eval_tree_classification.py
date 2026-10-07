@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 
 if __package__:
     from ._data_loader import NpyDatasetAug
-    from .model import CNN2D_Residual
+    from .model import Cnn2dResidual
     from .model_en import EfficientNetClassifier
     from ..utils.nn_utils import (
         load_json, load_model, convert_str_values, calculate_accuracy,
@@ -24,7 +24,7 @@ if __package__:
 else:
     sys.path.insert(0, str(pth.Path(__file__).parent.parent))
     from _data_loader import NpyDatasetAug
-    from model import CNN2D_Residual
+    from model import Cnn2dResidual
     from model_en import EfficientNetClassifier
     from utils.nn_utils import (
         load_json, load_model, convert_str_values, calculate_accuracy,
@@ -168,9 +168,9 @@ def prediction_accuracy(predictions: np.ndarray,
 
 def bdl_species_to_model_label(species_label: int) -> int:
     if __package__:
-        from ..BDL_api import SPECIES_DBL, SPECIES_MODEL
+        from ..bdl_api import SPECIES_DBL, SPECIES_MODEL
     else:
-        from BDL_api import SPECIES_DBL, SPECIES_MODEL
+        from bdl_api import SPECIES_DBL, SPECIES_MODEL
 
     model_label_by_latin_name = {value[0]: label for label, value in SPECIES_MODEL.items()}
 
@@ -204,11 +204,11 @@ def bdl_refined_predictions(predictions: np.ndarray,
                             size_m: int = 5000,
                             model_based: bool = False) -> np.ndarray:
     if __package__:
-        from ..BDL_api import BDLCall
+        from ..bdl_api import BdlCall
     else:
-        from BDL_api import BDLCall
+        from bdl_api import BdlCall
 
-    tree_bdl = BDLCall(size_m=size_m, model_based=model_based)
+    tree_bdl = BdlCall(size_m=size_m, model_based=model_based)
     tree_bdl.build_data_map(points=map_points, crs=crs)
 
     refined = np.asarray(predictions).copy()
@@ -333,7 +333,7 @@ def parser():
     )
 
     parser.add_argument(
-        '--model_name',
+        '--model-name',
         type=str,
         help=(
             "Base of the model's name.\n"
