@@ -27,13 +27,13 @@ from tqdm import tqdm
 if __package__:
     from ._train_single_case import train_model
     from .model_en import EfficientNetClassifier
-    from ..utils.nn_utils import load_json, save2json, save_model, convert_str_values, Plotter
+    from ..utils.nn_utils import load_json, save_to_json, save_model, convert_str_values, Plotter
 else:
     src_dir = pth.Path(__file__).parent.parent
     sys.path.insert(0, str(src_dir))
     from _train_single_case import train_model
     from model_en import EfficientNetClassifier
-    from utils.nn_utils import load_json, save2json, save_model, convert_str_values, Plotter
+    from utils.nn_utils import load_json, save_to_json, save_model, convert_str_values, Plotter
 
 
 def save_metric_history_csv(result_hist: dict,
@@ -350,7 +350,7 @@ class Checkpoint:
         best_hist = result_hist
 
         config_path = dict_files_dir.joinpath(f'{model_path.stem}_config.json')
-        save2json(best_config, config_path)
+        save_to_json(best_config, config_path)
         logger.info(f'New config for model {model_name} saved to: {config_path}')
 
         metrics_path = save_metric_history_csv(result_hist, plot_dir, model_name)
@@ -757,7 +757,7 @@ def main():
             tl_config_path = base_path / 'training_results' / args.model_name.rsplit('_', 1)[0] / 'dict_files' / f'{args.model_name}_config.json'
             tl_model_config = load_json(tl_config_path)['model_config']
             tmp_path = base_path / '_tmp_tl_model_config.json'
-            save2json(tl_model_config, tmp_path)
+            save_to_json(tl_model_config, tmp_path)
             check_models(model_configs_paths=[tmp_path], verbose=True)
             tmp_path.unlink()
         else:

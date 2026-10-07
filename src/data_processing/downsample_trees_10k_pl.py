@@ -14,11 +14,11 @@ import laspy
 import numpy as np
 
 if __package__:
-    from ..utils.nn_utils import convert_str_values, load_json, save2json
+    from ..utils.nn_utils import convert_str_values, load_json, save_to_json
 else:
     main_dir = pth.Path(__file__).parent.parent
     sys.path.insert(0, str(main_dir))
-    from utils.nn_utils import convert_str_values, load_json, save2json
+    from utils.nn_utils import convert_str_values, load_json, save_to_json
 import pandas as pd
 
 from typing import Optional
@@ -367,8 +367,8 @@ def update_paths_config(path2train: pth.Path, path2test: pth.Path, path2val: pth
         config_single[dataset_name] = str(path2dataset)
         config[dataset_name]        = str(path2dataset)
 
-        save2json(config_single, path2config_single)
-        save2json(config,        path2config)
+        save_to_json(config_single, path2config_single)
+        save_to_json(config,        path2config)
 
     _update_path(path2train, 'data_path_train')
     _update_path(path2test,  'data_path_test')
