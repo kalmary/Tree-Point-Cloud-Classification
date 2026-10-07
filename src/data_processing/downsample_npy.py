@@ -52,7 +52,7 @@ def split_and_copy(
     train_paths, rest_paths, _, rest_labels = train_test_split_safe(
         all_paths, labels, train_size=train_ratio,
     )
-    test_paths, val_paths, _, __ = train_test_split_safe(
+    test_paths, val_paths, _, _ = train_test_split_safe(
             rest_paths, rest_labels,
             train_size=test_ratio / (test_ratio + val_ratio),
     )

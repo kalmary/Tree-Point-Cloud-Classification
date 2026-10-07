@@ -79,7 +79,7 @@ def _eval_model(config_dict: dict,
                                  n_points=16384,
                                  use_domain_aug=True)
     
-    testLoader = DataLoader(
+    test_loader = DataLoader(
         test_dataset,
         batch_size=config_dict["batch_size"],
         num_workers=15,
@@ -88,7 +88,7 @@ def _eval_model(config_dict: dict,
         prefetch_factor=2,
     )
 
-    total = get_dataset_len(testLoader, verbose=False)
+    total = get_dataset_len(test_loader, verbose=False)
     weights, _ = compute_pos_weights(data_dir=config_dict['data_path_train'],
                                     num_classes=num_classes,
                                     power=0.35,
@@ -104,7 +104,7 @@ def _eval_model(config_dict: dict,
     all_probs = np.zeros((0, num_classes))
     all_labels = []
 
-    pbar = tqdm(testLoader, total=total, desc="Testing", unit="batch")
+    pbar = tqdm(test_loader, total=total, desc="Testing", unit="batch")
     with torch.no_grad():
         for batch_x, batch_y in pbar:
             model.eval()
@@ -300,7 +300,7 @@ def test_function(config_dict: dict,
                                  n_points=16384,
                                  use_domain_aug=False)
     
-    testLoader = DataLoader(
+    test_loader = DataLoader(
         test_dataset,
         batch_size=config_dict["batch_size"],
         num_workers=15,
@@ -309,7 +309,7 @@ def test_function(config_dict: dict,
         prefetch_factor=2,
     )
     
-    batch_x, _ = next(iter(testLoader))
+    batch_x, _ = next(iter(test_loader))
     batch_x = batch_x.to(config_dict['device'])
     model.eval()
     outputs = model(batch_x)

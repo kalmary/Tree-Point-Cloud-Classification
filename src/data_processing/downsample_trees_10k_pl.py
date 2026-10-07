@@ -81,25 +81,25 @@ def decimate_chunk_laz(work_dir: pth.Path, goal_dir: pth.Path, n_points: int = 1
         full_xyz = np.vstack((las.x, las.y, las.z)).T.astype(np.float32)
         full_xyz -= full_xyz.mean(axis=0)  # center
 
-        full_treeID = np.asarray(las.treeID)
-        full_treeSP = np.asarray(las.treeSP)
-        full_completelyInside = np.asarray(las.completelyInside)
+        full_tree_id = np.asarray(las.treeID)
+        full_tree_sp = np.asarray(las.treeSP)
+        full_completely_inside = np.asarray(las.completelyInside)
 
-        for tree_id in np.unique(full_treeID).flatten():
+        for tree_id in np.unique(full_tree_id).flatten():
             if tree_id == 0:
                 continue  # Skip points with treeID 0 (not part of any tree)
             
-            tree_mask = full_treeID == tree_id
+            tree_mask = full_tree_id == tree_id
             xyz = full_xyz[tree_mask]
             tree_height = xyz[:, 2].max() - xyz[:, 2].min()
             if tree_height < 1.4:
                 continue
 
-            label = full_treeSP[tree_mask][0]  # Assuming all points of the same tree have the same species label
+            label = full_tree_sp[tree_mask][0]  # Assuming all points of the same tree have the same species label
             if label == 0:
                 continue  # Skip trees with species label 0 (not part of any species)
 
-            completely_inside = full_completelyInside[tree_mask][0]  # Assuming all points
+            completely_inside = full_completely_inside[tree_mask][0]  # Assuming all points
 
             n = xyz.shape[0]
 
@@ -316,42 +316,42 @@ def find_metadata(work_dir: pth.Path, labels_org: np.ndarray, species: pd.DataFr
             'folder_name': folder_name,
         })
 
-    metadata_B = pd.DataFrame(
+    metadata_b = pd.DataFrame(
         rows,
         columns=['file_num', 'file_name', 'label', 'species_name', 'folder_name'],
     )
 
     counts = (
-        metadata_B
+        metadata_b
         .groupby(['label', 'species_name', 'folder_name'])
         .size()
         .unstack(fill_value=0)
     )
 
-    metadata_A = counts.rename(columns={
+    metadata_a = counts.rename(columns={
         'train': 'count_train',
         'test': 'count_test',
         'val': 'count_val',
     }).reset_index()
 
     for column in ['count_train', 'count_test', 'count_val']:
-        if column not in metadata_A:
-            metadata_A[column] = 0
+        if column not in metadata_a:
+            metadata_a[column] = 0
 
-    metadata_A = metadata_A[
+    metadata_a = metadata_a[
         ['label', 'species_name', 'count_train', 'count_test', 'count_val']
     ].sort_values('label').reset_index(drop=True)
 
     if dir_save is not None:
         dir_save.mkdir(parents=True, exist_ok=True)
-        metadata_A.to_csv(dir_save / 'metadata_A.csv', index=False)
-        metadata_B.to_csv(dir_save / 'metadata_B.csv', index=False)
+        metadata_a.to_csv(dir_save / 'metadata_A.csv', index=False)
+        metadata_b.to_csv(dir_save / 'metadata_B.csv', index=False)
 
     if verbose:
-        print(metadata_A)
-        print(metadata_B)
+        print(metadata_a)
+        print(metadata_b)
 
-    return metadata_A, metadata_B
+    return metadata_a, metadata_b
 
 
 def update_paths_config(path2train: pth.Path, path2test: pth.Path, path2val: pth.Path):
