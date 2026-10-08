@@ -73,7 +73,7 @@ uv sync --group dev --extra pytorch-cpu  # CPU-only on macOS, Windows, or Linux
 git submodule update --init --recursive
 ```
 
-The default `basic` group includes LAS/LAZ runtime support. The `dev` group adds plotting and development tools. After syncing, `uv run --no-sync` preserves the selected groups and PyTorch profile.
+The default `basic` group provides array-based inference and BDL integration. The `dev` group adds LAS/LAZ and HDF5 support together with preprocessing, training, evaluation, plotting, and test dependencies. After syncing, `uv run --no-sync` preserves the selected groups and PyTorch profile.
 
 ---
 
@@ -84,9 +84,9 @@ Before training a model, data preprocessing must be done. The script automatical
 sets, rebalances folders to match specified ratios. To do so run:
 
 ```bash
-uv run --no-sync python src/data_processing/downsample_trees.py
-    --source-path path/to/raw/data
-    --decimated-path path/to/decimated/pcds
+uv run --no-sync python src/data_processing/downsample_trees.py \
+    --source-path path/to/raw/data \
+    --decimated-path path/to/decimated/pcds \
     --converted-path path/to/final/processed/files
 ```
 Paths used when processing:
@@ -94,7 +94,7 @@ Paths used when processing:
 - decimated_path: serves as a checkpoint. Files are cut, decimated and saved as .npy files,
 - converted_path: final directory with processed files, distributed into training/ validation/ testing datasets, chunked into .h5 files,
 
-For more guidance/ guidance when running code, run it with ``--help`` flag.
+For more guidance when running code, run it with the ``--help`` flag.
 
 ### 2. Training <a name="training"></a>
 Examine contents of:
@@ -106,7 +106,6 @@ Files with `_single` suffix are meant for single training without any optimizati
 
 To start full training pipeline run:
 ```bash
-cd src/model_pipeline
 uv run --no-sync python src/model_pipeline/train_automated.py --model-name MODEL_NAME --device cpu --mode 3
 ```
 Available flags:
@@ -129,14 +128,13 @@ optuna_based_training(exp_config=exp_configs,
 ``n_trials=80`` is what we found to be giving good, repeatable results, but lower numbers where also acceptable. Even if the optimization process takes too long, 
 best model and its config are saved and overwritten if a better model is found. Alongside them, plots with metrics history (loss, accuracy, mIoU) are also saved.
 
-For more guidance/ guidance when running code, run it with ``--help`` flag.
+For more guidance when running code, run it with the ``--help`` flag.
 
 ### 3. Evaluation <a name="evaluation"></a>
 
 To evaluate trained model, run eval_tree_classification.py with proper flags:
 
 ```bash
-cd src/model_pipeline
 uv run --no-sync python src/model_pipeline/eval_tree_classification.py --model-name MODEL_NAME --device cpu --mode 1
 ```
 ``model_name`` flag must be the exact name of model you got from training, but without its extension name. For example:
@@ -163,16 +161,12 @@ Example usage:
 import numpy as np
 import torch
 
-from src.tree_classifier import TreeClassifier
 from src.bdl_api import BdlCall
-from src.final_files.model_en import EfficientNetClassifier
-
-config_path = "src/final_files/ResNetTreeV0_61_config.json"
-model = EfficientNetClassifier.from_config_file(config_path, num_classes=17)
+from src.tree_classifier import TreeClassifier
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 classifier = TreeClassifier(
-    model_name="ResNetTreeV0_61",
+    model_name="MODEL_NAME",
     config_dir="src/final_files",
     device=device,
 )
@@ -181,7 +175,7 @@ cloud = np.load("path/to/tree.npy")
 model_label = classifier.predict(cloud)
 
 bdl = BdlCall(size_m=5000, model_based=True)
-species_label = bdl.predict(cloud, crs="EPSG:2180", tree_label=model_label)
+species_label = bdl.predict(pcd=cloud, crs="EPSG:2180", tree_label=model_label)
 ```
 
 
