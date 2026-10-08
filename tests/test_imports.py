@@ -27,6 +27,9 @@ import importlib
 
 module = importlib.import_module('{prefix}.{module}')
 utilities = importlib.import_module('{prefix}.utils.nn_utils')
+dependency_loader = getattr(module, '_load_training_dependencies', None)
+if dependency_loader is not None:
+    dependency_loader()
 for name in ('load_json', 'load_model', 'compute_pos_weights', 'FocalLoss', 'Plotter'):
     if name in vars(module):
         assert getattr(module, name) is getattr(utilities, name), name
@@ -135,3 +138,37 @@ assert TreeClassifier.__module__ == 'src.tree_classifier'
     )
 
     assert result.returncode == 0, result.stderr
+
+
+def test_training_help_does_not_import_training_dependencies():
+    code = """
+import importlib.abc
+import sys
+
+class BlockTrainingImports(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname.split('.', 1)[0] in {
+            'matplotlib', 'numpy', 'optuna', 'pandas', 'torch', 'torchinfo'
+        }:
+            raise ImportError(f'Training dependency imported: {fullname}')
+
+sys.meta_path.insert(0, BlockTrainingImports())
+sys.argv = ['train_automated.py', '--help']
+from src.model_pipeline.train_automated import main
+
+try:
+    main()
+except SystemExit as error:
+    assert error.code == 0
+else:
+    raise AssertionError('--help did not exit')
+"""
+    result = subprocess.run(
+        [sys.executable, '-c', code],
+        cwd=Path(__file__).resolve().parents[1],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert '--model-name' in result.stdout

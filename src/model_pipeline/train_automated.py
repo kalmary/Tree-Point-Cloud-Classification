@@ -1,10 +1,7 @@
-import matplotlib
-matplotlib.use('Agg')
+from __future__ import annotations
 
 
 import pathlib as pth
-import numpy as np
-import pandas as pd
 from pprint import pprint
 from typing import Union, Sequence
 import itertools
@@ -16,29 +13,73 @@ import multiprocessing
 import math
 
 
-import torch
-import torch.nn as nn
-from torchinfo import summary
-import optuna
-
-from tqdm import tqdm
+_training_dependencies_loaded = False
 
 
-if __package__:
-    from ._train_single_case import train_model
-    from .model_en import EfficientNetClassifier
-    from ..utils.nn_utils import load_json, save_to_json, save_model, convert_str_values, Plotter
-else:
-    src_dir = pth.Path(__file__).parent.parent
-    sys.path.insert(0, str(src_dir))
-    from _train_single_case import train_model
-    from model_en import EfficientNetClassifier
-    from utils.nn_utils import load_json, save_to_json, save_model, convert_str_values, Plotter
+def _load_training_dependencies():
+    global _training_dependencies_loaded
+    global EfficientNetClassifier, Plotter, convert_str_values, load_json
+    global nn, np, optuna, pd, save_model, save_to_json, summary, torch, tqdm
+    global train_model
+
+    if _training_dependencies_loaded:
+        return
+
+    import matplotlib
+    import numpy as numpy_module
+    import optuna as optuna_module
+    import pandas as pandas_module
+    import torch as torch_module
+    import torch.nn as nn_module
+    from torchinfo import summary as model_summary
+    from tqdm import tqdm as progress_bar
+
+    matplotlib.use('Agg')
+
+    if __package__:
+        from ._train_single_case import train_model as train
+        from .model_en import EfficientNetClassifier as classifier
+        from ..utils.nn_utils import (
+            Plotter as plotter,
+            convert_str_values as convert_values,
+            load_json as load_config_file,
+            save_model as save_model_file,
+            save_to_json as save_config_file,
+        )
+    else:
+        src_dir = pth.Path(__file__).parent.parent
+        sys.path.insert(0, str(src_dir))
+        from _train_single_case import train_model as train
+        from model_en import EfficientNetClassifier as classifier
+        from utils.nn_utils import (
+            Plotter as plotter,
+            convert_str_values as convert_values,
+            load_json as load_config_file,
+            save_model as save_model_file,
+            save_to_json as save_config_file,
+        )
+
+    np = numpy_module
+    pd = pandas_module
+    torch = torch_module
+    nn = nn_module
+    optuna = optuna_module
+    summary = model_summary
+    tqdm = progress_bar
+    train_model = train
+    EfficientNetClassifier = classifier
+    Plotter = plotter
+    convert_str_values = convert_values
+    load_json = load_config_file
+    save_model = save_model_file
+    save_to_json = save_config_file
+    _training_dependencies_loaded = True
 
 
 def save_metric_history_csv(result_hist: dict,
                             plot_dir: pth.Path,
                             model_name: str) -> pth.Path:
+    _load_training_dependencies()
     metric_columns = {
         'loss': result_hist.get('loss_hist'),
         'loss_val': result_hist.get('loss_hist_val'),
@@ -68,6 +109,7 @@ def check_models(model_configs_paths: list[pth.Path],
     Print models not compiling.
     Return list of model configs that compile.
     """
+    _load_training_dependencies()
 
     # str paths to pth.Path if necessary
     model_configs_paths = [pth.Path(config) for config in model_configs_paths]
@@ -118,6 +160,7 @@ def get_factor_list(param_value_list: list[Union[float]]) -> list[Union[float]]:
 
 def get_step_list(param_value_list: list[Union[int, float]]) -> list[Union[int, float]]:
     """"Generate a list of values based on the given parameter value and type of list elements."""
+    _load_training_dependencies()
 
     start, stop, step = param_value_list
     
@@ -132,6 +175,7 @@ def get_step_list(param_value_list: list[Union[int, float]]) -> list[Union[int, 
 def generate_experiment_configs(training_config: dict, 
                                 model_configs_list: Sequence[dict],
                                 device_name: str = 'cpu') -> list[dict]:
+    _load_training_dependencies()
     logger = logging.getLogger(__name__)
     logger.info(f'START: generate_experiment_config.')
     
@@ -206,6 +250,7 @@ def load_config(base_dir: Union[str, pth.Path], device_name: str, mode: int = 0)
     2 - multiple trainings, with optuna
     
     """
+    _load_training_dependencies()
     logger = logging.getLogger(__name__)
     logger.info(f'START: case_based_training.')
 
@@ -266,6 +311,7 @@ def load_config(base_dir: Union[str, pth.Path], device_name: str, mode: int = 0)
         return exp_configs
 
 def test_case(exp_config: dict) -> None:
+    _load_training_dependencies()
     
     logger = logging.getLogger(__name__)
     logger.info(f'START: test_case.')
@@ -295,6 +341,7 @@ class Checkpoint:
                          final_val: float,
                          exp_config: dict,
                          result_hist: dict) -> tuple[nn.Module, dict, pth.Path, dict]:
+        _load_training_dependencies()
     
         
 
@@ -384,6 +431,7 @@ class Checkpoint:
 
 def case_based_training(exp_configs: list[dict],
                         model_name: str) -> None:
+    _load_training_dependencies()
     
     logger = logging.getLogger(__name__)
     logger.info(f'START: case_based_training.')
@@ -435,6 +483,7 @@ def objective_function(trial: optuna.Trial,
                        model_name: str,
                        model_configs_list: list[dict],
                        checkpoint: object) -> float:
+    _load_training_dependencies()
     
     """
     Objective function for Optuna
@@ -543,6 +592,7 @@ def objective_function(trial: optuna.Trial,
 def optuna_based_training(exp_config: list[dict], # only one, non converted conf given in list
                           model_name: str,
                           n_trials: int = 90) -> None:
+    _load_training_dependencies()
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     
     logger = logging.getLogger(__name__)
@@ -695,6 +745,7 @@ def argparser():
 def main():
     multiprocessing.set_start_method('spawn', force=True)
     args = argparser()
+    _load_training_dependencies()
 
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
@@ -766,5 +817,4 @@ def main():
         
 
 if __name__ == '__main__':
-    torch.multiprocessing.set_start_method('spawn')
     main()  
