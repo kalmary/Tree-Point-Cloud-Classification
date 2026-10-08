@@ -27,7 +27,11 @@ import importlib
 
 module = importlib.import_module('{prefix}.{module}')
 utilities = importlib.import_module('{prefix}.utils.nn_utils')
-for loader_name in ('_load_training_dependencies', '_load_model_dependencies'):
+for loader_name in (
+    '_load_training_dependencies',
+    '_load_model_dependencies',
+    '_load_preprocessing_dependencies',
+):
     dependency_loader = getattr(module, loader_name, None)
     if dependency_loader is not None:
         dependency_loader()
@@ -205,3 +209,41 @@ else:
 
     assert result.returncode == 0, result.stderr
     assert '--model-name' in result.stdout
+
+
+@pytest.mark.parametrize(
+    'module',
+    ['downsample_trees', 'downsample_trees_10k_pl'],
+)
+def test_preprocessing_help_does_not_import_processing_dependencies(module):
+    code = f"""
+import importlib.abc
+import sys
+
+class BlockProcessingImports(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname.split('.', 1)[0] in {{
+            'fpsample', 'h5py', 'laspy', 'numpy', 'pandas', 'sklearn'
+        }}:
+            raise ImportError(f'Processing dependency imported: {{fullname}}')
+
+sys.meta_path.insert(0, BlockProcessingImports())
+sys.argv = ['{module}.py', '--help']
+from src.data_processing.{module} import main
+
+try:
+    main()
+except SystemExit as error:
+    assert error.code == 0
+else:
+    raise AssertionError('--help did not exit')
+"""
+    result = subprocess.run(
+        [sys.executable, '-c', code],
+        cwd=Path(__file__).resolve().parents[1],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert '--source-path' in result.stdout

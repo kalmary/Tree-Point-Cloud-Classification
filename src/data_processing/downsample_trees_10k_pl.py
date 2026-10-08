@@ -1,30 +1,62 @@
+from __future__ import annotations
+
 import argparse
 from typing import Union
 import pathlib as pth
-import h5py
 import shutil
-from tqdm import tqdm
 import sys
-import fpsample
-
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
-
-import laspy
-import numpy as np
-
-if __package__:
-    from ..utils.nn_utils import convert_str_values, load_json, save_to_json
-else:
-    main_dir = pth.Path(__file__).parent.parent
-    sys.path.insert(0, str(main_dir))
-    from utils.nn_utils import convert_str_values, load_json, save_to_json
-import pandas as pd
 
 from typing import Optional
 
+_preprocessing_dependencies_loaded = False
+
+
+def _load_preprocessing_dependencies():
+    global _preprocessing_dependencies_loaded
+    global LabelEncoder, convert_str_values, fpsample, laspy, load_json
+    global np, pd, save_to_json, tqdm, train_test_split
+
+    if _preprocessing_dependencies_loaded:
+        return
+
+    import fpsample as fpsample_module
+    import laspy as laspy_module
+    import numpy as numpy_module
+    import pandas as pandas_module
+    from sklearn.model_selection import train_test_split as split_dataset
+    from sklearn.preprocessing import LabelEncoder as label_encoder
+    from tqdm import tqdm as progress_bar
+
+    if __package__:
+        from ..utils.nn_utils import (
+            convert_str_values as convert_values,
+            load_json as load_config,
+            save_to_json as save_config,
+        )
+    else:
+        main_dir = pth.Path(__file__).parent.parent
+        sys.path.insert(0, str(main_dir))
+        from utils.nn_utils import (
+            convert_str_values as convert_values,
+            load_json as load_config,
+            save_to_json as save_config,
+        )
+
+    fpsample = fpsample_module
+    laspy = laspy_module
+    np = numpy_module
+    pd = pandas_module
+    train_test_split = split_dataset
+    LabelEncoder = label_encoder
+    tqdm = progress_bar
+    convert_str_values = convert_values
+    load_json = load_config
+    save_to_json = save_config
+    _preprocessing_dependencies_loaded = True
+
 
 def decimate_chunk_laz(work_dir: pth.Path, goal_dir: pth.Path, n_points: int = 16384) -> None:
+    _load_preprocessing_dependencies()
     """
     Reads .laz files, looks up per-file labels from metadata, performs FPS subsampling,
     and saves (N, 4) arrays [X, Y, Z, label] into train/test/val subfolders.
@@ -120,6 +152,7 @@ def decimate_chunk_laz(work_dir: pth.Path, goal_dir: pth.Path, n_points: int = 1
 
 
 def split_data(work_dir: pth.Path, goal_dir: pth.Path, folder_split: dict):
+    _load_preprocessing_dependencies()
     """
     Splits .npy files into train/test/val folders based on the provided ratios.
     """
@@ -183,6 +216,7 @@ def split_data(work_dir: pth.Path, goal_dir: pth.Path, folder_split: dict):
 
 
 def rebalance_dataset(work_dir: pth.Path, folder_split: dict, tolerance=0.03):
+    _load_preprocessing_dependencies()
     work_train = work_dir.joinpath('train')
     work_test  = work_dir.joinpath('test')
     work_val   = work_dir.joinpath('val')
@@ -269,6 +303,7 @@ def argparser():
     return parser.parse_args()
 
 def find_metadata(work_dir: pth.Path, labels_org: np.ndarray, species: pd.DataFrame, dir_save: Optional[pth.Path]=None, verbose: bool = False) -> tuple[pd.DataFrame, pd.DataFrame]:
+    _load_preprocessing_dependencies()
     """
     args:
         work_dir: directory containing the dataset
@@ -355,6 +390,7 @@ def find_metadata(work_dir: pth.Path, labels_org: np.ndarray, species: pd.DataFr
 
 
 def update_paths_config(path2train: pth.Path, path2test: pth.Path, path2val: pth.Path):
+    _load_preprocessing_dependencies()
 
     def _update_path(path2dataset: Union[str, pth.Path], dataset_name: str):
         config_dir = pth.Path(__file__).parent.parent.joinpath('model_pipeline/training_configs')
@@ -377,6 +413,7 @@ def update_paths_config(path2train: pth.Path, path2test: pth.Path, path2val: pth
 
 def main():
     parser = argparser()
+    _load_preprocessing_dependencies()
 
     source = pth.Path(parser.source_path) if parser.source_path else \
              pth.Path(__file__).parent.parent.parent / 'data/raw'
