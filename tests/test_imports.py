@@ -93,16 +93,29 @@ def test_direct_evaluation_preserves_species_metadata_import():
 
 def test_tree_classifier_import_does_not_load_offline_utilities():
     code = """
+import importlib.abc
 import sys
 
+class BlockOfflineImports(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname.split('.', 1)[0] in {
+            'fpsample', 'h5py', 'laspy'
+        }:
+            raise ImportError(f'Offline dependency imported: {fullname}')
+
+sys.meta_path.insert(0, BlockOfflineImports())
 from src.tree_classifier import TreeClassifier
 
 forbidden = {
+    'fpsample',
     'h5py',
+    'laspy',
     'matplotlib',
     'optuna',
+    'pandas',
     'pyvista',
     'seaborn',
+    'sklearn',
     'torchinfo',
     'src.utils.pcd_manipulation',
     'src.utils.nn_utils.src.accuracy_metrics',
