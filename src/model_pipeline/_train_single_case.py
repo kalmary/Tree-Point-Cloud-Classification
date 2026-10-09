@@ -1,30 +1,37 @@
+import warnings
+from typing import Generator, Union
+
+import matplotlib
 import torch
 import torch.nn as nn
-import warnings
-from typing import Union, Generator
-from tqdm import tqdm
-import matplotlib
-matplotlib.use('Agg')
-
-import torch
-import torch.optim as optim
 import torch.multiprocessing as mp
-from torch.utils.data import DataLoader, WeightedRandomSampler
+import torch.optim as optim
 from torch.optim.lr_scheduler import OneCycleLR
+from torch.utils.data import DataLoader, WeightedRandomSampler
+from tqdm import tqdm
+
+matplotlib.use("Agg")
 
 if __package__:
-    from .model_en import EfficientNetClassifier
-    from ._data_loader import NpyDatasetAug
     from ..utils.nn_utils import (
-        compute_pos_weights, get_dataset_len, calculate_accuracy,
-        FocalLoss, wrap_hist,
+        FocalLoss,
+        calculate_accuracy,
+        compute_pos_weights,
+        get_dataset_len,
+        wrap_hist,
     )
+    from ._data_loader import NpyDatasetAug
+    from .model_en import EfficientNetClassifier
 else:
-    from model_en import EfficientNetClassifier
     from _data_loader import NpyDatasetAug
+    from model_en import EfficientNetClassifier
+
     from utils.nn_utils import (
-        compute_pos_weights, get_dataset_len, calculate_accuracy,
-        FocalLoss, wrap_hist,
+        FocalLoss,
+        calculate_accuracy,
+        compute_pos_weights,
+        get_dataset_len,
+        wrap_hist,
     )
 
 warning_to_filter = "Attempting to run cuBLAS, but there was no current CUDA context!"

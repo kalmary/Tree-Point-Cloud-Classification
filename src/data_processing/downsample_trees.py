@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import argparse
-from typing import Union
 import pathlib as pth
+import random
 import shutil
 import sys
-
-import random
+from typing import Union
 
 _preprocessing_dependencies_loaded = False
 
@@ -35,8 +34,6 @@ def _load_preprocessing_dependencies():
             save_to_json as save_config,
         )
     else:
-        main_dir = pth.Path(__file__).parent.parent
-        sys.path.insert(0, str(main_dir))
         from utils.nn_utils import (
             convert_str_values as convert_values,
             load_json as load_config,
@@ -426,4 +423,6 @@ def main():
 
 
 if __name__ == '__main__':
+    if __package__ in {None, ""}:
+        sys.path.insert(0, str(pth.Path(__file__).parent.parent))
     main()

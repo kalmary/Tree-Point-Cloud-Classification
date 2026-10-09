@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-import sys
-import os
 import argparse
 import importlib.util
 import multiprocessing
-import numpy as np
+import os
 import pathlib as pth
+import sys
+
+import numpy as np
 from tqdm import tqdm
 
 _model_dependencies_loaded = False
@@ -30,9 +31,6 @@ def _load_model_dependencies():
     from torchinfo import summary as model_summary
 
     if __package__:
-        from ._data_loader import NpyDatasetAug as dataset
-        from .model import Cnn2dResidual as residual_model
-        from .model_en import EfficientNetClassifier as efficientnet_model
         from ..utils.nn_utils import (
             FocalLoss as focal_loss,
             Plotter as plotter,
@@ -46,11 +44,14 @@ def _load_model_dependencies():
             load_json as load_config,
             load_model as load_model_file,
         )
+        from ._data_loader import NpyDatasetAug as dataset
+        from .model import Cnn2dResidual as residual_model
+        from .model_en import EfficientNetClassifier as efficientnet_model
     else:
-        sys.path.insert(0, str(pth.Path(__file__).parent.parent))
         from _data_loader import NpyDatasetAug as dataset
         from model import Cnn2dResidual as residual_model
         from model_en import EfficientNetClassifier as efficientnet_model
+
         from utils.nn_utils import (
             FocalLoss as focal_loss,
             Plotter as plotter,
@@ -481,4 +482,6 @@ def main():
 
 
 if __name__ == '__main__':
+    if __package__ in {None, ""}:
+        sys.path.insert(0, str(pth.Path(__file__).parent.parent))
     main()

@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-
-import pathlib as pth
-from pprint import pprint
-from typing import Union, Sequence
-import itertools
-import sys
 import argparse
-import logging
 import datetime
-import multiprocessing
+import itertools
+import logging
 import math
-
+import multiprocessing
+import pathlib as pth
+import sys
+from pprint import pprint
+from typing import Sequence, Union
 
 _training_dependencies_loaded = False
 
@@ -37,8 +35,6 @@ def _load_training_dependencies():
     matplotlib.use('Agg')
 
     if __package__:
-        from ._train_single_case import train_model as train
-        from .model_en import EfficientNetClassifier as classifier
         from ..utils.nn_utils import (
             Plotter as plotter,
             convert_str_values as convert_values,
@@ -46,11 +42,12 @@ def _load_training_dependencies():
             save_model as save_model_file,
             save_to_json as save_config_file,
         )
+        from ._train_single_case import train_model as train
+        from .model_en import EfficientNetClassifier as classifier
     else:
-        src_dir = pth.Path(__file__).parent.parent
-        sys.path.insert(0, str(src_dir))
         from _train_single_case import train_model as train
         from model_en import EfficientNetClassifier as classifier
+
         from utils.nn_utils import (
             Plotter as plotter,
             convert_str_values as convert_values,
@@ -817,4 +814,6 @@ def main():
         
 
 if __name__ == '__main__':
+    if __package__ in {None, ""}:
+        sys.path.insert(0, str(pth.Path(__file__).parent.parent))
     main()  
