@@ -1,3 +1,4 @@
+import argparse
 import pathlib as pth
 from typing import Optional, Union
 
@@ -65,9 +66,27 @@ class TreeClassifier:
 
 
 
-def main():
-    config_dir = pth.Path(__file__).parent.joinpath("final_files")
-    TreeClassifier(model_name="ResNetTreeV0_61", config_dir=config_dir, device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu"))
+def argparser(argv=None):
+    parser = argparse.ArgumentParser(description="Load a tree species classification model.")
+    parser.add_argument("--model-name", default="ResNetTreeV0_61")
+    parser.add_argument(
+        "--config-dir",
+        type=pth.Path,
+        default=pth.Path(__file__).parent / "final_files",
+    )
+    parser.add_argument("--device", choices=["cpu", "cuda", "gpu"], default="cpu")
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    args = argparser(argv)
+    device_name = "cuda" if args.device == "gpu" else args.device
+    TreeClassifier(
+        model_name=args.model_name,
+        config_dir=args.config_dir,
+        device=torch.device(device_name),
+    )
+
 
 if __name__ == '__main__':
     main()

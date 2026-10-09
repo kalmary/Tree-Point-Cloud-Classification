@@ -1,10 +1,12 @@
-import pyvista as pv
-import numpy as np
-from typing import Optional
+import argparse
 import pathlib as pth
+from typing import Optional
+
+import numpy as np
 
 
 def plot_cloud(points: np.ndarray, labels: Optional[np.ndarray] = None):
+    import pyvista as pv
     
     cloud = pv.PolyData(points)
     
@@ -39,15 +41,30 @@ def plot_cloud(points: np.ndarray, labels: Optional[np.ndarray] = None):
     plotter.close()
     plotter.deep_clean()
 
-def main():
-    path = "/mnt/DATA_SSD/BRIK/TREE_CLASS/GRAJEWO/processed/val"
-    path = pth.Path(path)
+def argparser(argv=None):
+    parser = argparse.ArgumentParser(description="Plot tree point clouds stored as NumPy arrays.")
+    parser.add_argument("--input-path", type=pth.Path, required=True)
+    parser.add_argument("--label", type=int)
+    return parser.parse_args(argv)
 
-    label = 15
-    file_paths = [file for file in path.glob("*.npy") if f"_{label}.npy" in file.name]
+
+def main(argv=None):
+    args = argparser(argv)
+    if args.input_path.is_file():
+        file_paths = [args.input_path]
+    elif args.label is None:
+        file_paths = list(args.input_path.glob("*.npy"))
+    else:
+        file_paths = [
+            file
+            for file in args.input_path.glob("*.npy")
+            if f"_{args.label}.npy" in file.name
+        ]
+
     for file in file_paths:
         pcd = np.load(file)
         plot_cloud(pcd)
+
 
 if __name__ == '__main__':
     main()

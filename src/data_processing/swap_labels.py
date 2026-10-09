@@ -1,8 +1,6 @@
+import argparse
 import pathlib as pth
-import numpy as np
-from tqdm import tqdm
 
-import pathlib as pth
 from tqdm import tqdm
 
 SWAP = {15: 16, 16: 15}
@@ -19,5 +17,16 @@ def swap_labels(root: pth.Path) -> None:
         new_name = p.stem.rsplit('_', 1)[0] + f'_{SWAP[label]}.npy'
         p.rename(p.parent / new_name)
 
+def argparser(argv=None):
+    parser = argparse.ArgumentParser(description="Swap configured labels in NumPy filenames.")
+    parser.add_argument("--source-path", type=pth.Path, required=True)
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    args = argparser(argv)
+    swap_labels(args.source_path)
+
+
 if __name__ == '__main__':
-    swap_labels(pth.Path('/mnt/DATA_SSD/BRIK/TREE_CLASS/decimated_balanced_mixed'))
+    main()

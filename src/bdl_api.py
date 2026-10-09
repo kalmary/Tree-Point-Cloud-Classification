@@ -1,3 +1,4 @@
+import argparse
 import math
 from collections import Counter
 
@@ -352,21 +353,29 @@ def test_resolve_maps_shrub_before_normal_species_logic():
     assert bdl._resolve(counts, 17) == 28
 
 
-if __name__ == "__main__":
-    bdl = BdlCall(size_m=5000, model_based=True)
-    print(bdl.find_species(53.643773, 22.465687, 12, crs="EPSG:2180"))
+def argparser(argv=None):
+    parser = argparse.ArgumentParser(description="Query BDL tree species data for one location.")
+    parser.add_argument("--latitude", type=float, required=True)
+    parser.add_argument("--longitude", type=float, required=True)
+    parser.add_argument("--tree-label", type=int, required=True)
+    parser.add_argument("--crs", default="EPSG:2180")
+    parser.add_argument("--size-m", type=int, default=5000)
+    parser.add_argument("--model-based", action=argparse.BooleanOptionalAction, default=True)
+    return parser.parse_args(argv)
 
-    # size_m powinno być w init 
-    # w find_species powinna być klasa podana jako int
-    # output find_species to int (key z SPECIES_DBL)
-    # int zwrócony przez model -> 
-    # -> szukasz obszaru na którym jest dane drzewo 
-    # -> patrzysz jakie drzewa występują na tym terenie
-    # -> robisz dopasowanie:
-    # --> jeśli masz model zwrócił np. klon: szukasz jakie klony występują na tym obszarze i zwracasz najczęstszy gatunek klona
-    # --> jeśli na tym obszarze nie ma np. klonu a model go zwrócił działasz zależnie od flagi: 
-    # ---> model_based: bool = True: zwracasz klon (ten który w Polsce jest częstszy, dokładana nazwa)
-    # ---> model_based: bool = False: zwracasz najczęstszy gatunek z obszaru
-    # --> jeśli model zwrócił others 15: zwracasz najczęstsze drzewo z obszaru
-    # --> jeśli model zwrócił others 15, ale nie masz danych o obszarze: zwracasz others
-    # --> błędna segmentacja zawsze zwraca błędną segmentację
+
+def main(argv=None):
+    args = argparser(argv)
+    bdl = BdlCall(size_m=args.size_m, model_based=args.model_based)
+    print(
+        bdl.find_species(
+            args.latitude,
+            args.longitude,
+            args.tree_label,
+            crs=args.crs,
+        )
+    )
+
+
+if __name__ == "__main__":
+    main()
