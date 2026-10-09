@@ -88,5 +88,45 @@ def main(argv=None):
     )
 
 
+def test_predict_preserves_projection_and_label_selection(monkeypatch):
+    classifier = object.__new__(TreeClassifier)
+    classifier.device = torch.device("cpu")
+    received = {}
+
+    def project(cloud, resolution_xy):
+        received["cloud"] = cloud.clone()
+        received["resolution_xy"] = resolution_xy
+        return torch.zeros((5, 4, 4), dtype=torch.float32)
+
+    class Model:
+        def __call__(self, batch):
+            received["batch_shape"] = tuple(batch.shape)
+            return torch.tensor([[0.1, 0.8, 0.1]])
+
+    monkeypatch.setattr(
+        __import__(__name__, fromlist=["cloud2side_views_torch"]),
+        "cloud2side_views_torch",
+        project,
+    )
+    classifier._model = Model()
+    cloud = np.arange(12, dtype=np.float64).reshape(4, 3)
+
+    result = classifier.predict(cloud)
+
+    assert received["resolution_xy"] == 350
+    assert received["cloud"].dtype == torch.float64
+    assert received["batch_shape"] == (1, 5, 4, 4)
+    assert np.array_equal(result, np.array([1]))
+
+
+def test_predict_preserves_empty_cloud_label():
+    classifier = object.__new__(TreeClassifier)
+
+    assert np.array_equal(
+        classifier.predict(np.empty((0, 3))),
+        np.array([15], dtype=np.int64),
+    )
+
+
 if __name__ == '__main__':
     main()

@@ -28,7 +28,7 @@ methods.
 
 ## Task 1: Characterize imports and invocations
 
-- [ ] Complete deterministic `TreeClassifier` and mocked `BdlCall` behavior
+- [x] Complete deterministic `TreeClassifier` and mocked `BdlCall` behavior
   tests before changing their imports.
 - [x] Inventory every `__main__` guard without removing any executable.
 - [x] Add separate blocked-import tests for classifier and BDL imports so each

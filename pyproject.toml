@@ -83,4 +83,4 @@ explicit = true
 
 [tool.pytest.ini_options]
 python_files = ["test_*.py"]
-testpaths = ["src/bdl_api.py", "tests"]
+testpaths = ["src/bdl_api.py", "src/tree_classifier.py", "tests"]

@@ -353,6 +353,23 @@ def test_resolve_maps_shrub_before_normal_species_logic():
     assert bdl._resolve(counts, 17) == 28
 
 
+def test_predict_uses_cloud_centroid_for_mocked_lookup():
+    bdl = BdlCall(model_based=False)
+    received = {}
+
+    def lookup(x, y, crs):
+        received["query"] = (x, y, crs)
+        return Counter({"Pinus_sylvestris": 3})
+
+    bdl._count_species_in_area = lookup
+    cloud = np.array([[10.0, 20.0, 1.0], [14.0, 24.0, 3.0]])
+
+    result = bdl.predict(cloud, crs="EPSG:2180", tree_label=16)
+
+    assert received["query"] == (12.0, 22.0, "EPSG:2180")
+    assert result == 18
+
+
 def argparser(argv=None):
     parser = argparse.ArgumentParser(description="Query BDL tree species data for one location.")
     parser.add_argument("--latitude", type=float, required=True)
