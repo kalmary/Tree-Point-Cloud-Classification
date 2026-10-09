@@ -33,7 +33,7 @@ methods.
 - [x] Inventory every `__main__` guard without removing any executable.
 - [ ] Add separate blocked-import tests for classifier and BDL imports so each
   exposes its current accidental dependencies.
-- [ ] Add paired direct/module `--help` tests for current preparation,
+- [x] Add paired direct/module `--help` tests for current preparation,
   training, evaluation, inference, and diagnostic commands.
 
 ## Task 2: Repair root-facing imports
@@ -59,7 +59,7 @@ methods.
   invocation path.
 - [ ] Ensure every current command handles `--help` before loading data,
   weights, CUDA, plotting, or making BDL requests.
-- [ ] Preserve direct-script and module execution from this project root.
+- [x] Preserve direct-script and module execution from this project root.
 
 ## Task 4: Verify dependency ownership
 

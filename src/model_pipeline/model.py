@@ -1,10 +1,11 @@
-import torch
-import torch.nn as nn
+import argparse
 from collections import OrderedDict
 from typing import Union
 from pathlib import Path
 import json
 
+import torch
+import torch.nn as nn
 
 
 class ResidualBlock2D(nn.Module):
@@ -193,6 +194,10 @@ class Cnn2dResidual(nn.Module):
         return x
     
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run a residual classifier smoke test.")
+    parser.add_argument("--device", default="cpu")
+    args = parser.parse_args()
+
     dummy_config = {
         "in_channels": 5,
         "global_params": {
@@ -219,9 +224,15 @@ if __name__ == "__main__":
     num_classes = 18
     resolution  = 350
  
-    x = torch.randn(batch_size, dummy_config["in_channels"], resolution, resolution)
+    x = torch.randn(
+        batch_size,
+        dummy_config["in_channels"],
+        resolution,
+        resolution,
+        device=args.device,
+    )
  
-    model = Cnn2dResidual(config=dummy_config, num_classes=num_classes)
+    model = Cnn2dResidual(config=dummy_config, num_classes=num_classes).to(args.device)
     model.eval()
  
     with torch.no_grad():
