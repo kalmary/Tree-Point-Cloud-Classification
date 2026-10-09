@@ -30,7 +30,7 @@ methods.
 
 - [ ] Complete deterministic `TreeClassifier` and mocked `BdlCall` behavior
   tests before changing their imports.
-- [ ] Inventory every `__main__` guard without removing any executable.
+- [x] Inventory every `__main__` guard without removing any executable.
 - [ ] Add separate blocked-import tests for classifier and BDL imports so each
   exposes its current accidental dependencies.
 - [ ] Add paired direct/module `--help` tests for current preparation,
