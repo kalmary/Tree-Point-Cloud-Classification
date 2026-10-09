@@ -145,6 +145,34 @@ assert TreeClassifier.__module__ == 'src.tree_classifier'
     assert result.returncode == 0, result.stderr
 
 
+def test_bdl_import_does_not_load_model_or_visualization_dependencies():
+    code = """
+import importlib.abc
+import sys
+
+class BlockUnrelatedImports(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname.split('.', 1)[0] in {
+            'fpsample', 'h5py', 'laspy', 'matplotlib', 'optuna', 'pyvista',
+            'torch', 'torchinfo', 'torchvision'
+        }:
+            raise ImportError(f'Unrelated dependency imported: {fullname}')
+
+sys.meta_path.insert(0, BlockUnrelatedImports())
+from src.bdl_api import BdlCall
+
+assert BdlCall.__module__ == 'src.bdl_api'
+"""
+    result = subprocess.run(
+        [sys.executable, '-c', code],
+        cwd=Path(__file__).resolve().parents[1],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
 def test_training_help_does_not_import_training_dependencies():
     code = """
 import importlib.abc

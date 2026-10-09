@@ -31,7 +31,7 @@ methods.
 - [ ] Complete deterministic `TreeClassifier` and mocked `BdlCall` behavior
   tests before changing their imports.
 - [x] Inventory every `__main__` guard without removing any executable.
-- [ ] Add separate blocked-import tests for classifier and BDL imports so each
+- [x] Add separate blocked-import tests for classifier and BDL imports so each
   exposes its current accidental dependencies.
 - [x] Add paired direct/module `--help` tests for current preparation,
   training, evaluation, inference, and diagnostic commands.
@@ -40,9 +40,9 @@ methods.
 
 - [ ] Replace `sys.path` mutation, generic utility imports, and wildcard imports
   with explicit imports from defining modules.
-- [ ] Keep classifier inference independent from dataset preparation, training,
+- [x] Keep classifier inference independent from dataset preparation, training,
   evaluation, reporting, and plotting modules.
-- [ ] Keep BDL imports independent from Torch, model definitions, data
+- [x] Keep BDL imports independent from Torch, model definitions, data
   preparation, and visualization.
 - [ ] Keep inference projection imports separate from training-only
   augmentation imports without changing projection calculations.

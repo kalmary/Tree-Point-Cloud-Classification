@@ -1,35 +1,17 @@
 from __future__ import annotations
 
 import pathlib as pth
+from typing import Optional, Union
+
 import numpy as np
-
-from typing import Union, Optional
-
 import torch
 
 if __package__:
-    from ..utils.pcd_manipulation import rotate_points, tilt_points, transform_points, add_gaussian_noise
     from ..utils.data_augmentation import cloud2side_views_torch
+    from ..utils.pcd_manipulation import add_gaussian_noise, rotate_points, tilt_points
 else:
-    import sys
-
-    sys.path.insert(0, str(pth.Path(__file__).parent.parent))
-    from utils.pcd_manipulation import rotate_points, tilt_points, transform_points, add_gaussian_noise
     from utils.data_augmentation import cloud2side_views_torch
-
-
-
-import pathlib as pth
-from typing import Optional, Union
-
-import numpy as np
-import torch
-
-import pathlib as pth
-from typing import Optional, Union
-
-import numpy as np
-import torch
+    from utils.pcd_manipulation import add_gaussian_noise, rotate_points, tilt_points
 
 
 def _rand_bool(p: float, device: torch.device) -> bool:
