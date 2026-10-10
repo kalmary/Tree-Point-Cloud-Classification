@@ -15,6 +15,10 @@ else:
     from utils.nn_utils import load_json, load_model
     from utils.point_projection import cloud2side_views_torch
 
+
+DEFAULT_CONFIG_DIR = pth.Path(__file__).resolve().parent / "final_files"
+
+
 class TreeClassifier:
     def __init__(self,
                  model_name: str = None,
@@ -28,8 +32,16 @@ class TreeClassifier:
         self._config = None
         self._model_config = None
         self._model = None
+        config_dir = self._resolve_config_dir(config_dir)
         self._load_config(config_dir)
         self._load_model(config_dir)
+
+    @staticmethod
+    def _resolve_config_dir(config_dir: Union[str, pth.Path]) -> pth.Path:
+        config_path = pth.Path(config_dir)
+        if config_path == pth.Path("src/final_files"):
+            return DEFAULT_CONFIG_DIR
+        return config_path
 
     # TODO adjust model loading 
     def _load_config(self, config_dir: Optional[Union[pth.Path, str]] = None) -> dict:
@@ -126,6 +138,32 @@ def test_predict_preserves_empty_cloud_label():
         classifier.predict(np.empty((0, 3))),
         np.array([15], dtype=np.int64),
     )
+
+
+def test_default_config_directory_is_independent_from_working_directory(
+    monkeypatch,
+    tmp_path,
+):
+    paths = []
+
+    monkeypatch.setattr(TreeClassifier, "_load_config", lambda self, path: paths.append(path))
+    monkeypatch.setattr(TreeClassifier, "_load_model", lambda self, path: paths.append(path))
+    monkeypatch.chdir(tmp_path)
+
+    TreeClassifier(model_name="model")
+
+    assert paths == [DEFAULT_CONFIG_DIR, DEFAULT_CONFIG_DIR]
+
+
+def test_explicit_relative_config_directory_keeps_caller_semantics(monkeypatch):
+    paths = []
+
+    monkeypatch.setattr(TreeClassifier, "_load_config", lambda self, path: paths.append(path))
+    monkeypatch.setattr(TreeClassifier, "_load_model", lambda self, path: paths.append(path))
+
+    TreeClassifier(model_name="model", config_dir="custom-models")
+
+    assert paths == [pth.Path("custom-models"), pth.Path("custom-models")]
 
 
 if __name__ == '__main__':

@@ -46,7 +46,7 @@ methods.
   preparation, and visualization.
 - [x] Keep inference projection imports separate from training-only
   augmentation imports without changing projection calculations.
-- [ ] Resolve metadata, configs, and weights through explicit or stable
+- [x] Resolve metadata, configs, and weights through explicit or stable
   project-relative paths while preserving naming conventions.
 
 ## Task 3: Repair standalone workflow imports
