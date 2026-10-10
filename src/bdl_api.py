@@ -357,8 +357,8 @@ def test_predict_uses_cloud_centroid_for_mocked_lookup():
     bdl = BdlCall(model_based=False)
     received = {}
 
-    def lookup(x, y, crs):
-        received["query"] = (x, y, crs)
+    def lookup(cx, cy, crs):
+        received["query"] = (cx, cy, crs)
         return Counter({"Pinus_sylvestris": 3})
 
     bdl._count_species_in_area = lookup

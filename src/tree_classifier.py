@@ -1,5 +1,3 @@
-# pyright: reportImplicitRelativeImport=false
-
 import argparse
 import pathlib as pth
 from collections.abc import Callable
