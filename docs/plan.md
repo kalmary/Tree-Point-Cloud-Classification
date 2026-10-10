@@ -38,8 +38,9 @@ methods.
 
 ## Task 2: Repair root-facing imports
 
-- [ ] Replace `sys.path` mutation, generic utility imports, and wildcard imports
-  with explicit imports from defining modules.
+- [x] Replace `sys.path` mutation in reusable dependency loaders, generic
+  utility imports, and wildcard imports with explicit imports from defining
+  modules; direct scripts bootstrap only their own package entry point.
 - [x] Keep classifier inference independent from dataset preparation, training,
   evaluation, reporting, and plotting modules.
 - [x] Keep BDL imports independent from Torch, model definitions, data

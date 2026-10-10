@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import pathlib as pth
 import random
+import runpy
 import shutil
 import sys
 from typing import Union
@@ -27,18 +28,11 @@ def _load_preprocessing_dependencies():
     from sklearn.preprocessing import LabelEncoder as label_encoder
     from tqdm import tqdm as progress_bar
 
-    if __package__:
-        from ..utils.nn_utils import (
-            convert_str_values as convert_values,
-            load_json as load_config,
-            save_to_json as save_config,
-        )
-    else:
-        from utils.nn_utils import (
-            convert_str_values as convert_values,
-            load_json as load_config,
-            save_to_json as save_config,
-        )
+    from ..utils.nn_utils import (
+        convert_str_values as convert_values,
+        load_json as load_config,
+        save_to_json as save_config,
+    )
 
     fpsample = fpsample_module
     h5py = h5py_module
@@ -422,7 +416,20 @@ def main():
     update_paths_config(path2train, path2test, path2val)
 
 
+def _run_direct_entry_point() -> None:
+    project_root = str(pth.Path(__file__).resolve().parents[2])
+    sys.path.insert(0, project_root)
+    try:
+        runpy.run_module(
+            "src.data_processing.downsample_trees",
+            run_name="__main__",
+        )
+    finally:
+        sys.path.remove(project_root)
+
+
 if __name__ == '__main__':
-    if __package__ in {None, ""}:
-        sys.path.insert(0, str(pth.Path(__file__).parent.parent))
-    main()
+    if __package__:
+        main()
+    else:
+        _run_direct_entry_point()

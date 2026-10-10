@@ -260,11 +260,13 @@ else:
 @pytest.mark.parametrize(
     ('module', 'loader_name'),
     [
+        ('src.data_processing.downsample_trees', '_load_preprocessing_dependencies'),
+        ('src.data_processing.downsample_trees_10k_pl', '_load_preprocessing_dependencies'),
         ('src.model_pipeline.eval_tree_classification', '_load_model_dependencies'),
         ('src.model_pipeline.train_automated', '_load_training_dependencies'),
     ],
 )
-def test_model_dependency_loaders_do_not_mutate_sys_path(module, loader_name):
+def test_dependency_loaders_do_not_mutate_sys_path(module, loader_name):
     code = f"""
 import importlib
 import inspect
