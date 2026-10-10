@@ -14,8 +14,9 @@ if __package__:
     from .utils.point_projection import cloud2side_views_torch
 else:
     from final_files.model_en import EfficientNetClassifier
-    from utils.nn_utils import load_json, load_model
     from utils.point_projection import cloud2side_views_torch
+
+    from utils.nn_utils import load_json, load_model
 
 
 DEFAULT_CONFIG_DIR = pth.Path(__file__).resolve().parent / "final_files"
