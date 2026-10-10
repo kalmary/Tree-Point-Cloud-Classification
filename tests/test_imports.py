@@ -258,6 +258,32 @@ else:
 
 
 @pytest.mark.parametrize(
+    ('module', 'loader_name'),
+    [
+        ('src.model_pipeline.eval_tree_classification', '_load_model_dependencies'),
+        ('src.model_pipeline.train_automated', '_load_training_dependencies'),
+    ],
+)
+def test_model_dependency_loaders_do_not_mutate_sys_path(module, loader_name):
+    code = f"""
+import importlib
+import inspect
+
+workflow = importlib.import_module('{module}')
+source = inspect.getsource(getattr(workflow, '{loader_name}'))
+assert 'sys.path' not in source
+"""
+    result = subprocess.run(
+        [sys.executable, '-c', code],
+        cwd=Path(__file__).resolve().parents[1],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize(
     'module',
     ['downsample_trees', 'downsample_trees_10k_pl'],
 )

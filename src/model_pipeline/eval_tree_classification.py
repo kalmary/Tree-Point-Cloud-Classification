@@ -5,6 +5,7 @@ import importlib.util
 import multiprocessing
 import os
 import pathlib as pth
+import runpy
 import sys
 
 import numpy as np
@@ -30,41 +31,22 @@ def _load_model_dependencies():
     from torch.utils.data import DataLoader as data_loader
     from torchinfo import summary as model_summary
 
-    if __package__:
-        from ..utils.nn_utils import (
-            FocalLoss as focal_loss,
-            Plotter as plotter,
-            calculate_accuracy as accuracy,
-            classification_report as write_classification_report,
-            compute_pos_weights as position_weights,
-            convert_str_values as convert_values,
-            get_dataset_len as dataset_length,
-            get_int_labels as integer_labels,
-            get_probabilities as probabilities,
-            load_json as load_config,
-            load_model as load_model_file,
-        )
-        from ._data_loader import NpyDatasetAug as dataset
-        from .model import Cnn2dResidual as residual_model
-        from .model_en import EfficientNetClassifier as efficientnet_model
-    else:
-        from _data_loader import NpyDatasetAug as dataset
-        from model import Cnn2dResidual as residual_model
-        from model_en import EfficientNetClassifier as efficientnet_model
-
-        from utils.nn_utils import (
-            FocalLoss as focal_loss,
-            Plotter as plotter,
-            calculate_accuracy as accuracy,
-            classification_report as write_classification_report,
-            compute_pos_weights as position_weights,
-            convert_str_values as convert_values,
-            get_dataset_len as dataset_length,
-            get_int_labels as integer_labels,
-            get_probabilities as probabilities,
-            load_json as load_config,
-            load_model as load_model_file,
-        )
+    from ..utils.nn_utils import (
+        FocalLoss as focal_loss,
+        Plotter as plotter,
+        calculate_accuracy as accuracy,
+        classification_report as write_classification_report,
+        compute_pos_weights as position_weights,
+        convert_str_values as convert_values,
+        get_dataset_len as dataset_length,
+        get_int_labels as integer_labels,
+        get_probabilities as probabilities,
+        load_json as load_config,
+        load_model as load_model_file,
+    )
+    from ._data_loader import NpyDatasetAug as dataset
+    from .model import Cnn2dResidual as residual_model
+    from .model_en import EfficientNetClassifier as efficientnet_model
 
     torch = torch_module
     nn = nn_module
@@ -481,7 +463,20 @@ def main():
                                 plot_dir])
 
 
+def _run_direct_entry_point() -> None:
+    project_root = str(pth.Path(__file__).resolve().parents[2])
+    sys.path.insert(0, project_root)
+    try:
+        runpy.run_module(
+            "src.model_pipeline.eval_tree_classification",
+            run_name="__main__",
+        )
+    finally:
+        sys.path.remove(project_root)
+
+
 if __name__ == '__main__':
-    if __package__ in {None, ""}:
-        sys.path.insert(0, str(pth.Path(__file__).parent.parent))
-    main()
+    if __package__:
+        main()
+    else:
+        _run_direct_entry_point()

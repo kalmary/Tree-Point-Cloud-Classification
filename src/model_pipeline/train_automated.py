@@ -7,6 +7,7 @@ import logging
 import math
 import multiprocessing
 import pathlib as pth
+import runpy
 import sys
 from pprint import pprint
 from typing import Sequence, Union
@@ -34,27 +35,15 @@ def _load_training_dependencies():
 
     matplotlib.use('Agg')
 
-    if __package__:
-        from ..utils.nn_utils import (
-            Plotter as plotter,
-            convert_str_values as convert_values,
-            load_json as load_config_file,
-            save_model as save_model_file,
-            save_to_json as save_config_file,
-        )
-        from ._train_single_case import train_model as train
-        from .model_en import EfficientNetClassifier as classifier
-    else:
-        from _train_single_case import train_model as train
-        from model_en import EfficientNetClassifier as classifier
-
-        from utils.nn_utils import (
-            Plotter as plotter,
-            convert_str_values as convert_values,
-            load_json as load_config_file,
-            save_model as save_model_file,
-            save_to_json as save_config_file,
-        )
+    from ..utils.nn_utils import (
+        Plotter as plotter,
+        convert_str_values as convert_values,
+        load_json as load_config_file,
+        save_model as save_model_file,
+        save_to_json as save_config_file,
+    )
+    from ._train_single_case import train_model as train
+    from .model_en import EfficientNetClassifier as classifier
 
     np = numpy_module
     pd = pandas_module
@@ -813,7 +802,20 @@ def main():
             check_models(model_configs_paths=list(model_configs_dir.rglob('*.json')), verbose=True)
         
 
+def _run_direct_entry_point() -> None:
+    project_root = str(pth.Path(__file__).resolve().parents[2])
+    sys.path.insert(0, project_root)
+    try:
+        runpy.run_module(
+            "src.model_pipeline.train_automated",
+            run_name="__main__",
+        )
+    finally:
+        sys.path.remove(project_root)
+
+
 if __name__ == '__main__':
-    if __package__ in {None, ""}:
-        sys.path.insert(0, str(pth.Path(__file__).parent.parent))
-    main()  
+    if __package__:
+        main()
+    else:
+        _run_direct_entry_point()
