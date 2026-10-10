@@ -1,10 +1,14 @@
+# pyright: reportImplicitRelativeImport=false
+
 import argparse
 import pathlib as pth
-from typing import Optional, Union
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
+from numpy.typing import NDArray
+from torch import nn
 
 if __package__:
     from .final_files.model_en import EfficientNetClassifier
@@ -17,42 +21,45 @@ else:
 
 
 DEFAULT_CONFIG_DIR = pth.Path(__file__).resolve().parent / "final_files"
+DEFAULT_DEVICE = torch.device("cpu")
 
 
 class TreeClassifier:
     def __init__(self,
-                 model_name: str = None,
-                 config_dir: Union[str, pth.Path] = "src/final_files",
-                 device: torch.device = torch.device('cpu')):
+                 model_name: str | None = None,
+                 config_dir: str | pth.Path = "src/final_files",
+                 device: str | torch.device = DEFAULT_DEVICE):
+        if model_name is None:
+            raise ValueError("model_name cannot be None")
         self.model_name = model_name + '.pt'
         if isinstance(device, str):
             device = torch.device(device)
         self.device = device
 
-        self._config = None
-        self._model_config = None
-        self._model = None
+        self._config: dict[str, Any]
+        self._model_config: dict[str, Any]
+        self._model: Callable[[torch.Tensor], torch.Tensor]
         config_dir = self._resolve_config_dir(config_dir)
         self._load_config(config_dir)
         self._load_model(config_dir)
 
     @staticmethod
-    def _resolve_config_dir(config_dir: Union[str, pth.Path]) -> pth.Path:
+    def _resolve_config_dir(config_dir: str | pth.Path) -> pth.Path:
         config_path = pth.Path(config_dir)
         if config_path == pth.Path("src/final_files"):
             return DEFAULT_CONFIG_DIR
         return config_path
 
     # TODO adjust model loading 
-    def _load_config(self, config_dir: Optional[Union[pth.Path, str]] = None) -> dict:
+    def _load_config(self, config_dir: pth.Path | str) -> None:
 
         config_path = pth.Path(config_dir).joinpath(self.model_name.replace('.pt', '_config.json'))
         config_dict = load_json(config_path)
 
         self._config = config_dict
-        self._model_config: dict = config_dict["model_config"]
+        self._model_config = config_dict["model_config"]
 
-    def _load_model(self, model_dir: Union[pth.Path, str] = "./final_files") -> nn.Module:
+    def _load_model(self, model_dir: pth.Path | str = "./final_files") -> None:
 
         path2model = pth.Path(model_dir).joinpath(self.model_name)
         model = EfficientNetClassifier(self._model_config, self._config['num_classes'])
@@ -62,12 +69,12 @@ class TreeClassifier:
         _model.eval()
         self._model = _model
         
-    def predict(self, cloud: np.ndarray):
+    def predict(self, cloud: NDArray[np.number[Any]]) -> NDArray[np.int64]:
         if cloud.shape[0] == 0:
             return np.array([15], dtype=np.int64)
 
-        cloud = torch.as_tensor(cloud, dtype=torch.float64)
-        imgs = cloud2side_views_torch(cloud, resolution_xy=350)
+        cloud_tensor = torch.as_tensor(cloud, dtype=torch.float64)
+        imgs = cloud2side_views_torch(cloud_tensor, resolution_xy=350)
         if imgs.ndim == 3:
             imgs = imgs.unsqueeze(0)
         imgs = imgs.to(self.device)      
@@ -164,6 +171,13 @@ def test_explicit_relative_config_directory_keeps_caller_semantics(monkeypatch):
     TreeClassifier(model_name="model", config_dir="custom-models")
 
     assert paths == [pth.Path("custom-models"), pth.Path("custom-models")]
+
+
+def test_model_name_is_required():
+    import pytest
+
+    with pytest.raises(ValueError, match="model_name cannot be None"):
+        TreeClassifier()
 
 
 if __name__ == '__main__':
