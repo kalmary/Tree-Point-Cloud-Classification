@@ -44,7 +44,7 @@ methods.
   evaluation, reporting, and plotting modules.
 - [x] Keep BDL imports independent from Torch, model definitions, data
   preparation, and visualization.
-- [ ] Keep inference projection imports separate from training-only
+- [x] Keep inference projection imports separate from training-only
   augmentation imports without changing projection calculations.
 - [ ] Resolve metadata, configs, and weights through explicit or stable
   project-relative paths while preserving naming conventions.

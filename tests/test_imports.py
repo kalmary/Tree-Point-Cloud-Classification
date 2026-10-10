@@ -125,6 +125,7 @@ forbidden = {
     'seaborn',
     'sklearn',
     'torchinfo',
+    'src.utils.data_augmentation',
     'src.utils.pcd_manipulation',
     'src.utils.nn_utils.src.accuracy_metrics',
     'src.utils.nn_utils.src.evaluation_plot_tools',
@@ -134,6 +135,23 @@ forbidden = {
 loaded = forbidden & sys.modules.keys()
 assert not loaded, loaded
 assert TreeClassifier.__module__ == 'src.tree_classifier'
+"""
+    result = subprocess.run(
+        [sys.executable, '-c', code],
+        cwd=Path(__file__).resolve().parents[1],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_projection_compatibility_import_uses_canonical_function():
+    code = """
+from src.utils.data_augmentation import cloud2side_views_torch as compatibility_projection
+from src.utils.point_projection import cloud2side_views_torch
+
+assert compatibility_projection is cloud2side_views_torch
 """
     result = subprocess.run(
         [sys.executable, '-c', code],

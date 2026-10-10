@@ -7,11 +7,11 @@ import numpy as np
 import torch
 
 if __package__:
-    from ..utils.data_augmentation import cloud2side_views_torch
     from ..utils.pcd_manipulation import add_gaussian_noise, rotate_points, tilt_points
+    from ..utils.point_projection import cloud2side_views_torch
 else:
-    from utils.data_augmentation import cloud2side_views_torch
     from utils.pcd_manipulation import add_gaussian_noise, rotate_points, tilt_points
+    from utils.point_projection import cloud2side_views_torch
 
 
 def _rand_bool(p: float, device: torch.device) -> bool:

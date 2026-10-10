@@ -8,12 +8,12 @@ import torch.nn as nn
 
 if __package__:
     from .final_files.model_en import EfficientNetClassifier
-    from .utils.data_augmentation import cloud2side_views_torch
     from .utils.nn_utils import load_json, load_model
+    from .utils.point_projection import cloud2side_views_torch
 else:
     from final_files.model_en import EfficientNetClassifier
-    from utils.data_augmentation import cloud2side_views_torch
     from utils.nn_utils import load_json, load_model
+    from utils.point_projection import cloud2side_views_torch
 
 class TreeClassifier:
     def __init__(self,
