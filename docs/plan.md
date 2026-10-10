@@ -51,13 +51,13 @@ methods.
 
 ## Task 3: Repair standalone workflow imports
 
-- [ ] Keep Laspy/HDF5/fpsample/scikit-learn dependencies local to preparation
+- [x] Keep Laspy/HDF5/fpsample/scikit-learn dependencies local to preparation
   commands that use them.
-- [ ] Keep Optuna, Torchinfo, metrics, reporting, and plotting imports local to
+- [x] Keep Optuna, Torchinfo, metrics, reporting, and plotting imports local to
   training/evaluation commands.
-- [ ] Remove only confirmed unused imports in a file when repairing that file's
+- [x] Remove only confirmed unused imports in a file when repairing that file's
   invocation path.
-- [ ] Ensure every current command handles `--help` before loading data,
+- [x] Ensure every current command handles `--help` before loading data,
   weights, CUDA, plotting, or making BDL requests.
 - [x] Preserve direct-script and module execution from this project root.
 
@@ -65,8 +65,8 @@ methods.
 
 - [ ] Run classifier and BDL import-boundary tests under `basic` with the
   selected PyTorch extra where required.
-- [ ] Run all standalone invocation tests and the complete suite under `dev`.
-- [ ] Verify parent-root imports and existing root classification/BDL behavior.
+- [x] Run all standalone invocation tests and the complete suite under `dev`.
+- [x] Verify parent-root imports and existing root classification/BDL behavior.
 - [ ] Run real BDL-network and production CUDA smoke tests separately in
   prepared environments.
 - [ ] Change dependency groups only after these workflow checks pass.
