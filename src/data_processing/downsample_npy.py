@@ -8,7 +8,6 @@ from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 
-
 def fps_sample(xyz: np.ndarray, n_points) -> np.ndarray:
     n = xyz.shape[0]
     if n > n_points:
