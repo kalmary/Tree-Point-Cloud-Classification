@@ -64,7 +64,7 @@ methods.
 
 ## Task 4: Verify dependency ownership
 
-- [ ] Run classifier and BDL import-boundary tests under `basic` with the
+- [x] Run classifier and BDL import-boundary tests under `basic` with the
   selected PyTorch extra where required.
 - [x] Run all standalone invocation tests and the complete suite under `dev`.
 - [x] Verify parent-root imports and existing root classification/BDL behavior.
