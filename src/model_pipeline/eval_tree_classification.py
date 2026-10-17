@@ -1,27 +1,94 @@
-import sys
-import os
+from __future__ import annotations
+
 import argparse
-import numpy as np
+import importlib.util
+import multiprocessing
+import os
 import pathlib as pth
+import runpy
+import sys
+
+import numpy as np
 from tqdm import tqdm
 
-
-import torch
-import torch.nn as nn
-from torchinfo import summary
-from torch.utils.data import DataLoader
+_model_dependencies_loaded = False
+_bdl_api_module = None
 
 
-from _data_loader import *
-from model_pipeline.model import CNN2D_Residual
-from model_pipeline.model_en import EfficientNetClassifier
+def _load_model_dependencies():
+    global _model_dependencies_loaded
+    global Cnn2dResidual, DataLoader, EfficientNetClassifier, FocalLoss
+    global NpyDatasetAug, Plotter, calculate_accuracy, classification_report
+    global compute_pos_weights, convert_str_values, get_dataset_len
+    global get_int_labels, get_probabilities, load_json, load_model
+    global nn, summary, torch
 
-current_dir = pth.Path(__file__).parent.parent
-sys.path.append(str(current_dir.parent))
+    if _model_dependencies_loaded:
+        return
 
-from utils import load_json, load_model, convert_str_values
-from utils import calculate_accuracy, get_intLabels, get_Probabilities,get_dataset_len, compute_pos_weights, FocalLoss
-from utils import Plotter, ClassificationReport
+    import torch as torch_module
+    import torch.nn as nn_module
+    from torch.utils.data import DataLoader as data_loader
+    from torchinfo import summary as model_summary
+
+    from ..utils.nn_utils import (
+        FocalLoss as focal_loss,
+        Plotter as plotter,
+        calculate_accuracy as accuracy,
+        classification_report as write_classification_report,
+        compute_pos_weights as position_weights,
+        convert_str_values as convert_values,
+        get_dataset_len as dataset_length,
+        get_int_labels as integer_labels,
+        get_probabilities as probabilities,
+        load_json as load_config,
+        load_model as load_model_file,
+    )
+    from ._data_loader import NpyDatasetAug as dataset
+    from .model import Cnn2dResidual as residual_model
+    from .model_en import EfficientNetClassifier as efficientnet_model
+
+    torch = torch_module
+    nn = nn_module
+    summary = model_summary
+    DataLoader = data_loader
+    NpyDatasetAug = dataset
+    Cnn2dResidual = residual_model
+    EfficientNetClassifier = efficientnet_model
+    FocalLoss = focal_loss
+    Plotter = plotter
+    calculate_accuracy = accuracy
+    classification_report = write_classification_report
+    compute_pos_weights = position_weights
+    convert_str_values = convert_values
+    get_dataset_len = dataset_length
+    get_int_labels = integer_labels
+    get_probabilities = probabilities
+    load_json = load_config
+    load_model = load_model_file
+    _model_dependencies_loaded = True
+
+
+def _load_bdl_api():
+    global _bdl_api_module
+
+    if _bdl_api_module is not None:
+        return _bdl_api_module
+
+    if __package__:
+        from .. import bdl_api as module
+    else:
+        module_path = pth.Path(__file__).parent.parent / 'bdl_api.py'
+        spec = importlib.util.spec_from_file_location(
+            'tree_classification_bdl_api', module_path
+        )
+        if spec is None or spec.loader is None:
+            raise ImportError(f'Could not load BDL API from {module_path}')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+    _bdl_api_module = module
+    return module
 
 OTHERS = None
 OTHERS = 15
@@ -55,6 +122,7 @@ def voxel_subsample_vectorized(xyz, voxel_size=0.25):
 
 def _eval_model(config_dict: dict,
                model: nn.Module) -> tuple[float, float, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    _load_model_dependencies()
     
     device_gpu = torch.device('cuda')
     device_cpu = torch.device('cpu')
@@ -70,7 +138,7 @@ def _eval_model(config_dict: dict,
                                  n_points=16384,
                                  use_domain_aug=True)
     
-    testLoader = DataLoader(
+    test_loader = DataLoader(
         test_dataset,
         batch_size=config_dict["batch_size"],
         num_workers=15,
@@ -79,7 +147,7 @@ def _eval_model(config_dict: dict,
         prefetch_factor=2,
     )
 
-    total = get_dataset_len(testLoader, verbose=False)
+    total = get_dataset_len(test_loader, verbose=False)
     weights, _ = compute_pos_weights(data_dir=config_dict['data_path_train'],
                                     num_classes=num_classes,
                                     power=0.35,
@@ -95,7 +163,7 @@ def _eval_model(config_dict: dict,
     all_probs = np.zeros((0, num_classes))
     all_labels = []
 
-    pbar = tqdm(testLoader, total=total, desc="Testing", unit="batch")
+    pbar = tqdm(test_loader, total=total, desc="Testing", unit="batch")
     with torch.no_grad():
         for batch_x, batch_y in pbar:
             model.eval()
@@ -122,8 +190,8 @@ def _eval_model(config_dict: dict,
 
             all_labels.extend(batch_y.cpu().tolist())
 
-            probs = get_Probabilities(outputs.cpu())
-            int_preds = get_intLabels(probs)
+            probs = get_probabilities(outputs.cpu())
+            int_preds = get_int_labels(probs)
 
             all_probs = np.concatenate([all_probs, probs.numpy()], axis=0)
             all_predictions.extend(int_preds.numpy())
@@ -158,7 +226,9 @@ def prediction_accuracy(predictions: np.ndarray,
 
 
 def bdl_species_to_model_label(species_label: int) -> int:
-    from src.BDL_api import SPECIES_DBL, SPECIES_MODEL
+    bdl_api = _load_bdl_api()
+    SPECIES_DBL = bdl_api.SPECIES_DBL
+    SPECIES_MODEL = bdl_api.SPECIES_MODEL
 
     model_label_by_latin_name = {value[0]: label for label, value in SPECIES_MODEL.items()}
 
@@ -191,9 +261,9 @@ def bdl_refined_predictions(predictions: np.ndarray,
                             crs,
                             size_m: int = 5000,
                             model_based: bool = False) -> np.ndarray:
-    from src.BDL_api import BDLCall
+    BdlCall = _load_bdl_api().BdlCall
 
-    tree_bdl = BDLCall(size_m=size_m, model_based=model_based)
+    tree_bdl = BdlCall(size_m=size_m, model_based=model_based)
     tree_bdl.build_data_map(points=map_points, crs=crs)
 
     refined = np.asarray(predictions).copy()
@@ -212,6 +282,7 @@ def bdl_refined_predictions(predictions: np.ndarray,
 def eval_model_front(config_dict: dict,
         model: nn.Module,
         paths: list[pth.Path]):
+    _load_model_dependencies()
     
     model_path = paths[0]
     model_name = model_path.stem
@@ -236,7 +307,7 @@ def eval_model_front(config_dict: dict,
     plotter.cnf_matrix(f'cnf_{model_name}.png', all_labels, all_predictions)
     plotter.threshold_hist(f'threshold_hist_{model_name}.pdf', all_probs)
 
-    ClassificationReport(file_path=plot_dir.joinpath(f'classification_report_{model_name}.txt'),
+    classification_report(file_path=plot_dir.joinpath(f'classification_report_{model_name}.txt'),
                         pred=all_predictions,
                         target=all_labels)
 
@@ -262,7 +333,7 @@ def eval_model_front(config_dict: dict,
     #     print('='*20)
 
     #     plotter.cnf_matrix(f'cnf_bdl_{model_name}.png', all_labels, bdl_predictions)
-    #     ClassificationReport(file_path=plot_dir.joinpath(f'classification_report_bdl_{model_name}.txt'),
+    #     classification_report(file_path=plot_dir.joinpath(f'classification_report_bdl_{model_name}.txt'),
     #                         pred=bdl_predictions,
     #                         target=all_labels)
     # else:
@@ -271,6 +342,7 @@ def eval_model_front(config_dict: dict,
 
 def test_function(config_dict: dict,
                 model):
+    _load_model_dependencies()
     
     device_gpu = torch.device('cuda')
     device_cpu = torch.device('cpu')
@@ -285,7 +357,7 @@ def test_function(config_dict: dict,
                                  n_points=16384,
                                  use_domain_aug=False)
     
-    testLoader = DataLoader(
+    test_loader = DataLoader(
         test_dataset,
         batch_size=config_dict["batch_size"],
         num_workers=15,
@@ -294,7 +366,7 @@ def test_function(config_dict: dict,
         prefetch_factor=2,
     )
     
-    batch_x, _ = next(iter(testLoader))
+    batch_x, _ = next(iter(test_loader))
     batch_x = batch_x.to(config_dict['device'])
     model.eval()
     outputs = model(batch_x)
@@ -318,7 +390,7 @@ def parser():
     )
 
     parser.add_argument(
-        '--model_name',
+        '--model-name',
         type=str,
         help=(
             "Base of the model's name.\n"
@@ -354,6 +426,8 @@ def parser():
 
 def main():
     args = parser()
+    multiprocessing.set_start_method('spawn', force=True)
+    _load_model_dependencies()
     base_path = pth.Path(__file__).parent
     device_name = args.device
     device = torch.device('cuda') if (('cuda' in device_name.lower() or 'gpu' in device_name.lower()) and torch.cuda.is_available()) else torch.device('cpu')
@@ -389,6 +463,20 @@ def main():
                                 plot_dir])
 
 
+def _run_direct_entry_point() -> None:
+    project_root = str(pth.Path(__file__).resolve().parents[2])
+    sys.path.insert(0, project_root)
+    try:
+        runpy.run_module(
+            "src.model_pipeline.eval_tree_classification",
+            run_name="__main__",
+        )
+    finally:
+        sys.path.remove(project_root)
+
+
 if __name__ == '__main__':
-    torch.multiprocessing.set_start_method('spawn')
-    main()
+    if __package__:
+        main()
+    else:
+        _run_direct_entry_point()

@@ -1,24 +1,38 @@
+import warnings
+from typing import Generator, Union
+
+import matplotlib
 import torch
 import torch.nn as nn
-import os
-import sys
-import warnings
-from typing import Union, Generator
-from tqdm import tqdm
-import matplotlib
-matplotlib.use('Agg')
-
-import torch
-import torch.optim as optim
 import torch.multiprocessing as mp
-from torch.utils.data import DataLoader, WeightedRandomSampler
+import torch.optim as optim
 from torch.optim.lr_scheduler import OneCycleLR
+from torch.utils.data import DataLoader, WeightedRandomSampler
+from tqdm import tqdm
 
-from model_en import EfficientNetClassifier
+matplotlib.use("Agg")
 
-from _data_loader import *
-from utils import compute_pos_weights, get_dataset_len, calculate_accuracy, FocalLoss, ArcFaceFocalLoss
-from utils import wrap_hist
+if __package__:
+    from ..utils.nn_utils import (
+        FocalLoss,
+        calculate_accuracy,
+        compute_pos_weights,
+        get_dataset_len,
+        wrap_hist,
+    )
+    from ._data_loader import NpyDatasetAug
+    from .model_en import EfficientNetClassifier
+else:
+    from _data_loader import NpyDatasetAug
+    from model_en import EfficientNetClassifier
+
+    from utils.nn_utils import (
+        FocalLoss,
+        calculate_accuracy,
+        compute_pos_weights,
+        get_dataset_len,
+        wrap_hist,
+    )
 
 warning_to_filter = "Attempting to run cuBLAS, but there was no current CUDA context!"
 
@@ -28,11 +42,6 @@ warnings.filterwarnings(
     message=warning_to_filter, 
     category=UserWarning
 )
-
-
-nerual_net_dir = os.path.dirname(__file__)
-sys.path.append(nerual_net_dir)
-
 
 
 def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[nn.Module, dict], None, None],
@@ -60,12 +69,12 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
     #                            shuffle = False,
     #                            device = device_loader)
     
-    # trainLoader = DataLoader(train_dataset,
+    # train_loader = DataLoader(train_dataset,
     #                          batch_size=None,
     #                          num_workers = num_workers,
     #                          pin_memory=False)
     
-    # valLoader = DataLoader(val_dataset,
+    # val_loader = DataLoader(val_dataset,
     #                        batch_size=None,
     #                        num_workers = num_workers,
     #                        pin_memory=False)
@@ -87,7 +96,7 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
                             n_points=16384,
                             use_domain_aug=True)
 
-    valLoader = DataLoader(
+    val_loader = DataLoader(
         val_dataset,
         batch_size=training_dict["batch_size"],
         num_workers=num_workers,
@@ -116,7 +125,7 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
         replacement=True
     )
 
-    trainLoader = DataLoader(
+    train_loader = DataLoader(
         train_dataset,
         batch_size=training_dict["batch_size"],
         sampler=sampler_t,          # mutually exclusive with shuffle=True
@@ -126,8 +135,8 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
         prefetch_factor=2,
     )
 
-    total_t = get_dataset_len(trainLoader)
-    total_v = get_dataset_len(valLoader)
+    total_t = get_dataset_len(train_loader)
+    total_v = get_dataset_len(val_loader)
 
 
     try:
@@ -204,7 +213,7 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
                 if epoch == model_unfreeze_epoch:
                     model.unfreeze_backbone()
 
-                progressbar_t = tqdm(trainLoader, 
+                progressbar_t = tqdm(train_loader, 
                                     desc=f"Epoch training {epoch+1}/ {training_dict['epochs']}", 
                                     total=total_t, 
                                     position=3,
@@ -257,7 +266,7 @@ def train_model(training_dict: dict, num_workers = 20) -> Union[Generator[tuple[
                 loss_hist.append(avg_loss_t)
                 acc_hist.append(-1.)
 
-                progressbar_v = tqdm(valLoader, desc=f"Epoch validation {epoch + 1}/ {training_dict['epochs']}", total=total_v, position=3, leave=False)
+                progressbar_v = tqdm(val_loader, desc=f"Epoch validation {epoch + 1}/ {training_dict['epochs']}", total=total_v, position=3, leave=False)
                 model.eval()
                 with torch.no_grad():
                     for batch_x, batch_y in progressbar_v:

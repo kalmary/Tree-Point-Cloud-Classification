@@ -1,3 +1,4 @@
+import argparse
 import math
 from collections import Counter
 
@@ -76,7 +77,7 @@ RDLP_TO_COLLECTION = {
 }
 
 
-class BDLCall:
+class BdlCall:
 
     def __init__(
         self,
@@ -328,14 +329,14 @@ def test_map_model_label_maps_shrub_to_detailed_code_without_lookup():
     def fail_lookup(*_args, **_kwargs):
         raise AssertionError("geographic lookup must not be used")
 
-    bdl = BDLCall()
+    bdl = BdlCall()
     bdl._count_species_in_area = fail_lookup
 
     assert bdl.map_model_label(17) == 28
 
 
 def test_map_model_label_rejects_model_genus_without_exact_detailed_name():
-    bdl = BDLCall()
+    bdl = BdlCall()
 
     try:
         bdl.map_model_label(0)
@@ -346,27 +347,52 @@ def test_map_model_label_rejects_model_genus_without_exact_detailed_name():
 
 
 def test_resolve_maps_shrub_before_normal_species_logic():
-    bdl = BDLCall()
+    bdl = BdlCall()
     counts = Counter({"Pinus_sylvestris": 100})
 
     assert bdl._resolve(counts, 17) == 28
 
 
-if __name__ == "__main__":
-    bdl = BDLCall(size_m=5000, model_based=True)
-    print(bdl.find_species(53.643773, 22.465687, 12, crs="EPSG:2180"))
+def test_predict_uses_cloud_centroid_for_mocked_lookup():
+    bdl = BdlCall(model_based=False)
+    received = {}
 
-    # size_m powinno być w init 
-    # w find_species powinna być klasa podana jako int
-    # output find_species to int (key z SPECIES_DBL)
-    # int zwrócony przez model -> 
-    # -> szukasz obszaru na którym jest dane drzewo 
-    # -> patrzysz jakie drzewa występują na tym terenie
-    # -> robisz dopasowanie:
-    # --> jeśli masz model zwrócił np. klon: szukasz jakie klony występują na tym obszarze i zwracasz najczęstszy gatunek klona
-    # --> jeśli na tym obszarze nie ma np. klonu a model go zwrócił działasz zależnie od flagi: 
-    # ---> model_based: bool = True: zwracasz klon (ten który w Polsce jest częstszy, dokładana nazwa)
-    # ---> model_based: bool = False: zwracasz najczęstszy gatunek z obszaru
-    # --> jeśli model zwrócił others 15: zwracasz najczęstsze drzewo z obszaru
-    # --> jeśli model zwrócił others 15, ale nie masz danych o obszarze: zwracasz others
-    # --> błędna segmentacja zawsze zwraca błędną segmentację
+    def lookup(cx, cy, crs):
+        received["query"] = (cx, cy, crs)
+        return Counter({"Pinus_sylvestris": 3})
+
+    bdl._count_species_in_area = lookup
+    cloud = np.array([[10.0, 20.0, 1.0], [14.0, 24.0, 3.0]])
+
+    result = bdl.predict(cloud, crs="EPSG:2180", tree_label=16)
+
+    assert received["query"] == (12.0, 22.0, "EPSG:2180")
+    assert result == 18
+
+
+def argparser(argv=None):
+    parser = argparse.ArgumentParser(description="Query BDL tree species data for one location.")
+    parser.add_argument("--latitude", type=float, required=True)
+    parser.add_argument("--longitude", type=float, required=True)
+    parser.add_argument("--tree-label", type=int, required=True)
+    parser.add_argument("--crs", default="EPSG:2180")
+    parser.add_argument("--size-m", type=int, default=5000)
+    parser.add_argument("--model-based", action=argparse.BooleanOptionalAction, default=True)
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    args = argparser(argv)
+    bdl = BdlCall(size_m=args.size_m, model_based=args.model_based)
+    print(
+        bdl.find_species(
+            args.latitude,
+            args.longitude,
+            args.tree_label,
+            crs=args.crs,
+        )
+    )
+
+
+if __name__ == "__main__":
+    main()

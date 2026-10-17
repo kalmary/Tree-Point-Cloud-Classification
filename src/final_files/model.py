@@ -1,3 +1,4 @@
+import argparse
 import torch
 import torch.nn as nn
 from torchvision import models
@@ -112,7 +113,7 @@ class EfficientNetClassifier(nn.Module):
             return logits
         return logits, feat
 
-def test_model():
+def test_model(device="cpu"):
     # for version, (model_fn, weights, stored_val) in EfficientNetClassifier.MODEL_REGISTRY.items():
     #     m = model_fn(weights=None)
     #     actual = m.classifier[1].in_features
@@ -124,9 +125,9 @@ def test_model():
         "dropout": 0.4
     }
 
-    model = EfficientNetClassifier(config=config, num_classes=15)
+    model = EfficientNetClassifier(config=config, num_classes=15).to(device)
 
-    batch = torch.randn(2, 5, 350, 350)
+    batch = torch.randn(2, 5, 350, 350, device=device)
     output = model(batch)
     print(f"Output shape: {output.shape}")
     print(f"Total parameters: {model.get_total_params():,}")
@@ -136,5 +137,12 @@ def test_model():
         m = EfficientNetClassifier({"model_version": version, "in_channels": 5, "dropout": 0.4}, num_classes=15)
         print(f"{version:20s}: {m.get_total_params():,} parameters")
 
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Run an EfficientNet classifier smoke test.")
+    parser.add_argument("--device", default="cpu")
+    args = parser.parse_args(argv)
+    test_model(device=args.device)
+
+
 if __name__ == "__main__":
-    test_model()
+    main()

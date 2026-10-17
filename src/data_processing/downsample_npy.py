@@ -8,7 +8,6 @@ from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 
-
 def fps_sample(xyz: np.ndarray, n_points) -> np.ndarray:
     n = xyz.shape[0]
     if n > n_points:
@@ -52,7 +51,7 @@ def split_and_copy(
     train_paths, rest_paths, _, rest_labels = train_test_split_safe(
         all_paths, labels, train_size=train_ratio,
     )
-    test_paths, val_paths, _, __ = train_test_split_safe(
+    test_paths, val_paths, _, _ = train_test_split_safe(
             rest_paths, rest_labels,
             train_size=test_ratio / (test_ratio + val_ratio),
     )
@@ -77,10 +76,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--source',      type=str,   default='')
     parser.add_argument('--dest',        type=str,   default='')
-    parser.add_argument('--train_ratio', type=float, default=0.7)
-    parser.add_argument('--test_ratio',  type=float, default=0.2)
-    parser.add_argument('--val_ratio',   type=float, default=0.1)
-    parser.add_argument('--n_points',    type=int,   default=16384)
+    parser.add_argument('--train-ratio', type=float, default=0.7)
+    parser.add_argument('--test-ratio',  type=float, default=0.2)
+    parser.add_argument('--val-ratio',   type=float, default=0.1)
+    parser.add_argument('--n-points',    type=int,   default=16384)
     args = parser.parse_args()
 
     source = pth.Path(args.source) if args.source else pth.Path(__file__).parent.parent / 'data/raw'

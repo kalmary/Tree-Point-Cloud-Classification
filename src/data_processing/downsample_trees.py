@@ -1,29 +1,58 @@
+from __future__ import annotations
+
 import argparse
-from typing import Union
 import pathlib as pth
-import h5py
+import runpy
 import shutil
-from tqdm import tqdm
 import sys
-import fpsample
+from typing import Union
 
-import random
+_preprocessing_dependencies_loaded = False
 
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
 
-import laspy
-import numpy as np
+def _load_preprocessing_dependencies():
+    global _preprocessing_dependencies_loaded
+    global LabelEncoder, convert_str_values, fpsample, h5py, laspy, load_json
+    global np, pd, save_to_json, tqdm, train_test_split
 
-import sys
-main_dir = pth.Path(__file__).parent.parent
-sys.path.append(str(main_dir))
+    if _preprocessing_dependencies_loaded:
+        return
 
-from utils import convert_str_values, load_json, save2json
-import pandas as pd
+    import fpsample as fpsample_module
+    import h5py as h5py_module
+    import laspy as laspy_module
+    import numpy as numpy_module
+    import pandas as pandas_module
+    from sklearn.model_selection import train_test_split as split_dataset
+    from sklearn.preprocessing import LabelEncoder as label_encoder
+    from tqdm import tqdm as progress_bar
+
+    from ..utils.nn_utils import (
+        convert_str_values as convert_values,
+    )
+    from ..utils.nn_utils import (
+        load_json as load_config,
+    )
+    from ..utils.nn_utils import (
+        save_to_json as save_config,
+    )
+
+    fpsample = fpsample_module
+    h5py = h5py_module
+    laspy = laspy_module
+    np = numpy_module
+    pd = pandas_module
+    train_test_split = split_dataset
+    LabelEncoder = label_encoder
+    tqdm = progress_bar
+    convert_str_values = convert_values
+    load_json = load_config
+    save_to_json = save_config
+    _preprocessing_dependencies_loaded = True
 
 
 def decimate_chunk_laz(work_dir: pth.Path, goal_dir: pth.Path, folder_split: dict, metadata: pd.DataFrame) -> None:
+    _load_preprocessing_dependencies()
     """
     Reads .laz files, looks up per-file labels from metadata, performs FPS subsampling,
     and saves (N, 4) arrays [X, Y, Z, label] into train/test/val subfolders.
@@ -127,6 +156,7 @@ def decimate_chunk_laz(work_dir: pth.Path, goal_dir: pth.Path, folder_split: dic
 
 
 def convert_dataset(work_dir: pth.Path, goal_dir: pth.Path) -> tuple[pth.Path, pth.Path, pth.Path]:
+    _load_preprocessing_dependencies()
     """
     Chunks .npy files (N, 4) = [X, Y, Z, label] into HDF5 datasets.
     Each HDF5 dataset has shape (chunk_h5_shape, N, 4).
@@ -186,6 +216,7 @@ def convert_dataset(work_dir: pth.Path, goal_dir: pth.Path) -> tuple[pth.Path, p
 
 
 def rebalance_dataset(work_dir: pth.Path, folder_split: dict, tolerance=0.03):
+    _load_preprocessing_dependencies()
     work_train = work_dir.joinpath('train')
     work_test  = work_dir.joinpath('test')
     work_val   = work_dir.joinpath('val')
@@ -256,19 +287,19 @@ def argparser():
         formatter_class=argparse.RawTextHelpFormatter
     )
 
-    parser.add_argument('--source_path',    type=str, default="")
-    parser.add_argument('--decimated_path', type=str, default="")
-    parser.add_argument('--converted_path', type=str, default="")
+    parser.add_argument('--source-path',    type=str, default="")
+    parser.add_argument('--decimated-path', type=str, default="")
+    parser.add_argument('--converted-path', type=str, default="")
 
     parser.add_argument(
-        '--folder_split',
+        '--folder-split',
         type=Union[list[int], list[str]],
         default=[0.7, 0.2, 0.1],
         help="Folder split ratios for train, test, validation."
     )
 
-    parser.add_argument('--metadata_path', type=Union[str, pth.Path], default=None)
-    parser.add_argument('--species_path',  type=Union[str, pth.Path], default=None)
+    parser.add_argument('--metadata-path', type=Union[str, pth.Path], default=None)
+    parser.add_argument('--species-path',  type=Union[str, pth.Path], default=None)
 
     return parser.parse_args()
 
@@ -278,6 +309,7 @@ def get_metadata(
     species: list,
     merge_map: dict[str, list[str]] | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    _load_preprocessing_dependencies()
     
     df = pd.read_csv(path2csv)
 
@@ -310,6 +342,7 @@ def get_metadata(
 
 
 def update_paths_config(path2train: pth.Path, path2test: pth.Path, path2val: pth.Path):
+    _load_preprocessing_dependencies()
 
     def _update_path(path2dataset: Union[str, pth.Path], dataset_name: str):
         config_dir = pth.Path(__file__).parent.parent.joinpath('model_pipeline/training_configs')
@@ -322,8 +355,8 @@ def update_paths_config(path2train: pth.Path, path2test: pth.Path, path2val: pth
         config_single[dataset_name] = str(path2dataset)
         config[dataset_name]        = str(path2dataset)
 
-        save2json(config_single, path2config_single)
-        save2json(config,        path2config)
+        save_to_json(config_single, path2config_single)
+        save_to_json(config,        path2config)
 
     _update_path(path2train, 'data_path_train')
     _update_path(path2test,  'data_path_test')
@@ -332,6 +365,7 @@ def update_paths_config(path2train: pth.Path, path2test: pth.Path, path2val: pth
 
 def main():
     parser = argparser()
+    _load_preprocessing_dependencies()
 
     source = pth.Path(parser.source_path) if parser.source_path else \
              pth.Path(__file__).parent.parent.parent / 'data/raw'
@@ -385,5 +419,20 @@ def main():
     update_paths_config(path2train, path2test, path2val)
 
 
+def _run_direct_entry_point() -> None:
+    project_root = str(pth.Path(__file__).resolve().parents[2])
+    sys.path.insert(0, project_root)
+    try:
+        runpy.run_module(
+            "src.data_processing.downsample_trees",
+            run_name="__main__",
+        )
+    finally:
+        sys.path.remove(project_root)
+
+
 if __name__ == '__main__':
-    main()
+    if __package__:
+        main()
+    else:
+        _run_direct_entry_point()

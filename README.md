@@ -30,9 +30,9 @@
 ├── data_processing
 │   └── downsample_trees.py        #Program for preprocessing point cloud files. Creates hdf5 files for training, validation and testing                    
 ├── model_pipeline
-│   ├── Train_Automated.py          #Main Python Program for training 
+│   ├── train_automated.py          #Main Python Program for training
 │   ├── _data_loader.py
-│   ├── Eval_TreeClassification.py  #Main Python Program for evaluating outputs
+│   ├── eval_tree_classification.py  #Main Python Program for evaluating outputs
 │   ├── model.py                    #ResNet model, configurable from dictionary
 │   ├── model_configs               #Folder containing all architecture config files
 │   ├── config_files                #Folder containing all parameters config files
@@ -58,24 +58,22 @@ cd Tree-Point-Cloud-Classification
 git pull
 git submodule update --init --recursive
 
-git submodule foreach --recursive git checkout main
-git submodule foreach --recursive git pull origin main
+git submodule foreach --recursive git checkout development
 ```
 
-Create and activate a Virtual Environment and install requirements:
+Create the uv environment with Python 3.12 and choose one PyTorch profile:
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-
-# Install all requirements, without pytorch and cuda
-pip install requirements.txt
-
-# Tested on this, but should work with any other version
-pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu128
+uv sync --extra pytorch-cpu  # core runtime, CPU-only
+uv sync --group dev --extra pytorch-cpu  # CPU-only on macOS, Windows, or Linux
+# macOS system profile (also CPU): uv sync --group dev --extra pytorch-macos
+# Linux with CUDA 13.2: uv sync --group dev --extra pytorch-linux-cuda
+# Windows with CUDA 13.2: uv sync --group dev --extra pytorch-windows-cuda
 
 # update git submodules
 git submodule update --init --recursive
 ```
+
+The default `basic` group provides array-based inference and BDL integration. The `dev` group adds LAS/LAZ and HDF5 support together with preprocessing, training, evaluation, plotting, and test dependencies. After syncing, `uv run --no-sync` preserves the selected groups and PyTorch profile.
 
 ---
 
@@ -86,17 +84,17 @@ Before training a model, data preprocessing must be done. The script automatical
 sets, rebalances folders to match specified ratios. To do so run:
 
 ```bash
-python src/data_processing/downsample_trees.py
-    --source_path path/to/raw/data
-    --decimated_path path/to/decimated/pcds
-    --converted_path path/to/final/processed/files
+uv run --no-sync python src/data_processing/downsample_trees.py \
+    --source-path path/to/raw/data \
+    --decimated-path path/to/decimated/pcds \
+    --converted-path path/to/final/processed/files
 ```
 Paths used when processing:
 - source_path: directory with raw (.LAZ by default) point clouds,
 - decimated_path: serves as a checkpoint. Files are cut, decimated and saved as .npy files,
 - converted_path: final directory with processed files, distributed into training/ validation/ testing datasets, chunked into .h5 files,
 
-For more guidance/ guidance when running code, run it with ``--help`` flag.
+For more guidance when running code, run it with the ``--help`` flag.
 
 ### 2. Training <a name="training"></a>
 Examine contents of:
@@ -108,8 +106,7 @@ Files with `_single` suffix are meant for single training without any optimizati
 
 To start full training pipeline run:
 ```bash
-cd src/model_pipeline
-python src/model_pipeline/Train_Automated.py --model_name MODEL_NAME --device cuda --mode 3
+uv run --no-sync python src/model_pipeline/train_automated.py --model-name MODEL_NAME --device cpu --mode 3
 ```
 Available flags:
 - ``model_name`` - name of your model. Results are stored in ``src/model_pipeline/training_results/MODEL_NAME``,
@@ -121,7 +118,7 @@ Available flags:
     - `3` - check models - run this to get a rough idea of model resource demands.
  
 
-For most optimal results we recommend using options based on multidimensional space of hyperparameters. If you choose Optuna based option you can change ``n_trials`` in ``main`` function of ``Train_Automated.py``:
+For most optimal results we recommend using options based on multidimensional space of hyperparameters. If you choose Optuna based option you can change ``n_trials`` in ``main`` function of ``train_automated.py``:
 ```python
 optuna_based_training(exp_config=exp_configs,
                       model_name=model_name,
@@ -131,15 +128,14 @@ optuna_based_training(exp_config=exp_configs,
 ``n_trials=80`` is what we found to be giving good, repeatable results, but lower numbers where also acceptable. Even if the optimization process takes too long, 
 best model and its config are saved and overwritten if a better model is found. Alongside them, plots with metrics history (loss, accuracy, mIoU) are also saved.
 
-For more guidance/ guidance when running code, run it with ``--help`` flag.
+For more guidance when running code, run it with the ``--help`` flag.
 
 ### 3. Evaluation <a name="evaluation"></a>
 
-To evaluate trained model, run Eval_TreeClassification.py with proper flags:
+To evaluate trained model, run eval_tree_classification.py with proper flags:
 
 ```bash
-cd src/model_pipeline
-python src/model_pipeline/Eval_TreeClassification.py --model_name MODEL_NAME --device cuda --mode 1
+uv run --no-sync python src/model_pipeline/eval_tree_classification.py --model-name MODEL_NAME --device cpu --mode 1
 ```
 ``model_name`` flag must be the exact name of model you got from training, but without its extension name. For example:
 ```
@@ -157,24 +153,20 @@ Evaluation mode output are plots:
 As previously, you can run this script with ``--help`` flag.
 
 For inference, use:
-- ``src/TreeClassifier.py`` - ``TreeClassifier`` loads a trained model and predicts tree classes from point cloud arrays,
-- ``src/BDL_api.py`` - ``BDLCall`` uses BDL data to modify model output labels with aid of [Bank Danych o Lasach](https://www.bdl.lasy.gov.pl/portal/).
+- ``src/tree_classifier.py`` - ``TreeClassifier`` loads a trained model and predicts tree classes from point cloud arrays,
+- ``src/bdl_api.py`` - ``BdlCall`` uses BDL data to modify model output labels with aid of [Bank Danych o Lasach](https://www.bdl.lasy.gov.pl/portal/).
 
 Example usage:
 ```python
 import numpy as np
 import torch
 
-from src.TreeClassifier import TreeClassifier
-from src.BDL_api import BDLCall
-from src.final_files.model_en import EfficientNetClassifier
-
-config_path = "src/final_files/ResNetTreeV0_61_config.json"
-model = EfficientNetClassifier.from_config_file(config_path, num_classes=17)
+from src.bdl_api import BdlCall
+from src.tree_classifier import TreeClassifier
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 classifier = TreeClassifier(
-    model_name="ResNetTreeV0_61",
+    model_name="MODEL_NAME",
     config_dir="src/final_files",
     device=device,
 )
@@ -182,8 +174,8 @@ classifier = TreeClassifier(
 cloud = np.load("path/to/tree.npy")
 model_label = classifier.predict(cloud)
 
-bdl = BDLCall(size_m=5000, model_based=True)
-species_label = bdl.predict(cloud, crs="EPSG:2180", tree_label=model_label)
+bdl = BdlCall(size_m=5000, model_based=True)
+species_label = bdl.predict(pcd=cloud, crs="EPSG:2180", tree_label=model_label)
 ```
 
 

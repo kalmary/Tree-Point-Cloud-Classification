@@ -1,33 +1,17 @@
 from __future__ import annotations
 
 import pathlib as pth
-import numpy as np
-
-from typing import Union, Optional
-
-import torch
-
-import os
-import sys
-neural_net_dir = os.path.dirname(pth.Path(__file__).parent)
-sys.path.append(neural_net_dir)
-
-from utils.pcd_manipulation import rotate_points, tilt_points, transform_points, add_gaussian_noise
-from utils.data_augmentation import cloud2sideViews_torch
-
-
-
-import pathlib as pth
 from typing import Optional, Union
 
 import numpy as np
 import torch
 
-import pathlib as pth
-from typing import Optional, Union
-
-import numpy as np
-import torch
+if __package__:
+    from ..utils.pcd_manipulation import add_gaussian_noise, rotate_points, tilt_points
+    from ..utils.point_projection import cloud2side_views_torch
+else:
+    from utils.pcd_manipulation import add_gaussian_noise, rotate_points, tilt_points
+    from utils.point_projection import cloud2side_views_torch
 
 
 def _rand_bool(p: float, device: torch.device) -> bool:
@@ -635,7 +619,7 @@ class NpyDatasetAug(torch.utils.data.Dataset):
         cloud = _safe_points(cloud)
         cloud = _resample_points(cloud, n_points=self.n_points)
 
-        views = cloud2sideViews_torch(
+        views = cloud2side_views_torch(
             cloud,
             resolution_xy=self.resolution_xy,
         )

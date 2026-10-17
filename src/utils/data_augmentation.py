@@ -1,11 +1,14 @@
 from typing import Union
 
-from torchvision.transforms import GaussianBlur
 import torch
 import numpy as np
 
+from .point_projection import cloud2side_views_torch
+
 
 def gaussian_blur(img: Union[torch.Tensor, np.ndarray], kernel_size=(5, 5), sigma=1.5):
+    from torchvision.transforms import GaussianBlur
+
     if isinstance(img, np.ndarray):
         img = torch.from_numpy(img).unsqueeze(0).unsqueeze(0)
         img = img.float()
@@ -17,7 +20,7 @@ def gaussian_blur(img: Union[torch.Tensor, np.ndarray], kernel_size=(5, 5), sigm
 
     return blurred_img.to(img.device)
 
-def cloud2sideViews_torch_with_reference_cube(
+def cloud2side_views_torch_with_reference_cube(
     points: torch.Tensor,
     reference_points: torch.Tensor,
     resolution_xy: int,
@@ -114,7 +117,7 @@ def cloud2sideViews_torch_with_reference_cube(
             min_val = values.min()
             max_val = values.max()
 
-            # Same convention as cloud2sideViews_torch:
+            # Same convention as cloud2side_views_torch:
             # smaller distance to viewer -> brighter.
             normalised = (max_val - values) / (max_val - min_val + 1e-8)
             normalised = normalised * (1.0 - 1.0 / 255.0) + (1.0 / 255.0)
@@ -143,83 +146,6 @@ def cloud2sideViews_torch_with_reference_cube(
     views.append(build_depth_map((gz, gy), dist_right, flip_y=True, flip_x=True))
 
     return torch.stack(views, dim=0).to(dtype=torch.float32)
-
-def cloud2sideViews_torch(points: torch.Tensor,
-                       resolution_xy: int | None = None,
-                       margin_ratio: float = 0.05) -> torch.Tensor:
- 
-        points = points.type(torch.float64)
-
-        min_xyz = points.min(dim=0).values
-        max_xyz = points.max(dim=0).values
-
-        center = (min_xyz + max_xyz) / 2
-        max_range = (max_xyz - min_xyz).max()
-        cube_half = max_range / 2 * (1 + 2 * margin_ratio)
-
-        cube_min = center - cube_half
-        cube_max = center + cube_half
-
-        def to_grid(val, min_val, max_val):
-            return torch.clamp(
-                ((val - min_val) / (max_val - min_val + 1e-8) * (resolution_xy - 1)).long(),
-                0, resolution_xy - 1
-            )
-
-        x, y, z = points[:, 0], points[:, 1], points[:, 2]
-
-        gx = to_grid(x, cube_min[0], cube_max[0])
-        gy = to_grid(y, cube_min[1], cube_max[1])
-        gz = to_grid(z, cube_min[2], cube_max[2])
-
-        views = []
-
-        def build_depth_map(indices_2d, distances, flip_y=False, flip_x=False):
-            y_idx, x_idx = indices_2d
-            if flip_y:
-                y_idx = resolution_xy - 1 - y_idx
-            if flip_x:
-                x_idx = resolution_xy - 1 - x_idx
-
-            flat_indices = y_idx * resolution_xy + x_idx
-            depth_map = torch.full((resolution_xy * resolution_xy,), float('inf'),
-                                   dtype=torch.float64, device=distances.device)
-            depth_map = torch.scatter_reduce(depth_map, 0, flat_indices, distances,
-                                             reduce='amin', include_self=True)
-
-            img = depth_map.view(resolution_xy, resolution_xy)
-            valid_mask = torch.isfinite(img)
-
-            if torch.any(valid_mask):
-                values = img[valid_mask]
-                min_val = values.min()
-                max_val = values.max()
-                normalised = (max_val - values) / (max_val - min_val + 1e-8)
-                normalised = normalised * (1.0 - 1.0 / 255.0) + (1.0 / 255.0)
-                img = img.clone()
-                img[valid_mask] = normalised
-                img[~valid_mask] = 0.0
-            else:
-                img = torch.zeros_like(img)
-
-            return img.type(torch.float32)
-
-        dist_top = cube_max[2] - z
-        views.append(build_depth_map((gy, gx), dist_top))
-
-        dist_front = cube_max[1] - y
-        views.append(build_depth_map((gz, gx), dist_front, flip_y=True))
-
-        dist_back = y - cube_min[1]
-        views.append(build_depth_map((gz, gx), dist_back, flip_y=True, flip_x=True))
-
-        dist_left = cube_max[0] - x
-        views.append(build_depth_map((gz, gy), dist_left, flip_y=True))
-
-        dist_right = x - cube_min[0]
-        views.append(build_depth_map((gz, gy), dist_right, flip_y=True, flip_x=True))
-
-        return torch.stack(views, dim=0).type(torch.float32)
 
 def voxel_tree_skeleton_torch(
     xyz: torch.Tensor,
