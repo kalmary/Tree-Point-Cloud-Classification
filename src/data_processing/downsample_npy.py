@@ -24,7 +24,8 @@ def train_test_split_safe(paths, labels, train_size, random_state=42):
         label_counts[l] = label_counts.get(l, 0) + 1
     stratify = labels if all(c >= 2 for c in label_counts.values()) else None
     return train_test_split(
-        paths, labels,
+        paths,
+        labels,
         train_size=train_size,
         random_state=random_state,
         shuffle=True,
